@@ -33,27 +33,26 @@ export default function GameHUD() {
 
   if (!state) return null;
 
-  // Check if any player sits near the top center (would overlap with centered HUD)
   const seats = getSeatPositions(state.players.length);
   const hasTopCenterPlayer = seats.some((s) => s.y < 150 && s.x > 400 && s.x < 880);
 
   const posClass = hasTopCenterPlayer
-    ? 'absolute top-4 right-28 text-right'
-    : 'absolute top-4 left-1/2 -translate-x-1/2 text-center';
+    ? 'absolute top-2 right-28 text-right'
+    : 'absolute top-2 left-1/2 -translate-x-1/2 text-center';
 
   return (
-    <div className={`${posClass} bg-gray-900/80 rounded-lg px-4 py-3 backdrop-blur-sm text-white`}>
-      <div className="text-xs text-gray-500 mb-0.5">
+    <div className={`${posClass} bg-gray-900/80 rounded-lg px-3 py-2 sm:px-4 sm:py-3 backdrop-blur-sm text-white`}>
+      <div className="text-[9px] sm:text-xs text-gray-500 mb-0.5">
         {VARIANT_LABELS[state.config.variant] ?? state.config.variant}
       </div>
-      <div className="text-sm text-gray-400">
-        Hand #{state.handNumber} &middot; Blinds {state.config.smallBlind}/{state.config.bigBlind}
+      <div className="text-[10px] sm:text-sm text-gray-400">
+        Hand #{state.handNumber} &middot; {state.config.smallBlind}/{state.config.bigBlind}
       </div>
-      <div className="text-lg font-bold text-yellow-400">
+      <div className="text-sm sm:text-lg font-bold text-yellow-400">
         {PHASE_LABELS[state.phase] ?? state.phase}
       </div>
       {isAIThinking && (
-        <div className="text-sm text-blue-400 animate-pulse mt-1">
+        <div className="text-[10px] sm:text-sm text-blue-400 animate-pulse mt-0.5">
           AI is thinking...
         </div>
       )}

@@ -15,7 +15,6 @@ export default function MultiplayerActionBar() {
 
   const [raiseAmount, setRaiseAmount] = useState(0);
 
-  // Derive action types
   const actions = useMemo(() => {
     const map: Record<string, { type: ActionType; amount: number }> = {};
     for (const a of availableActions) {
@@ -27,18 +26,17 @@ export default function MultiplayerActionBar() {
   if (!gameState) return null;
   if (gameState.phase === Phase.Settle || gameState.phase === Phase.Showdown) return null;
 
-  // Timer display
   const timerSeconds = turnTimer ? Math.ceil(turnTimer.remainingMs / 1000) : null;
   const activePlayer = gameState.players[gameState.activePlayerIndex];
 
   if (!isMyTurn) {
     return (
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-gray-900/80 backdrop-blur-sm rounded-xl px-6 py-3 flex items-center gap-4">
-        <span className="text-gray-400">
+      <div className="fixed bottom-3 left-1/2 -translate-x-1/2 bg-gray-900/80 backdrop-blur-sm rounded-xl px-4 py-2.5 sm:px-6 sm:py-3 flex items-center gap-3 sm:gap-4">
+        <span className="text-gray-400 text-sm sm:text-base">
           Waiting for <span className="text-white font-medium">{activePlayer?.name}</span>...
         </span>
         {timerSeconds !== null && (
-          <span className={`font-mono font-bold text-lg ${timerSeconds <= 10 ? 'text-red-400' : 'text-yellow-400'}`}>
+          <span className={`font-mono font-bold text-base sm:text-lg ${timerSeconds <= 10 ? 'text-red-400' : 'text-yellow-400'}`}>
             {timerSeconds}s
           </span>
         )}
@@ -63,74 +61,68 @@ export default function MultiplayerActionBar() {
   };
 
   return (
-    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
-      {/* Timer */}
+    <div className="fixed bottom-3 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 max-w-[95vw]">
       {timerSeconds !== null && (
-        <span className={`font-mono font-bold text-lg ${timerSeconds <= 10 ? 'text-red-400' : 'text-yellow-400'}`}>
+        <span className={`font-mono font-bold text-base sm:text-lg ${timerSeconds <= 10 ? 'text-red-400' : 'text-yellow-400'}`}>
           {timerSeconds}s
         </span>
       )}
 
-      <div className="flex gap-2 items-center">
-        {/* Fold */}
+      <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2 items-center bg-gray-900/90 rounded-xl px-3 py-3 sm:px-4 sm:py-3 backdrop-blur-sm">
         {actions[ActionType.Fold] && (
           <button
             onClick={() => handleAction(ActionType.Fold)}
-            className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-lg transition-colors shadow-lg"
+            className="px-4 py-2.5 sm:px-6 sm:py-3 bg-red-600 active:bg-red-800 hover:bg-red-700 text-white rounded-xl font-bold text-sm sm:text-lg transition-colors shadow-lg min-h-[44px]"
           >
             Fold
           </button>
         )}
 
-        {/* Check */}
         {actions[ActionType.Check] && (
           <button
             onClick={() => handleAction(ActionType.Check)}
-            className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-xl font-bold text-lg transition-colors shadow-lg"
+            className="px-4 py-2.5 sm:px-6 sm:py-3 bg-gray-600 active:bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold text-sm sm:text-lg transition-colors shadow-lg min-h-[44px]"
           >
             Check
           </button>
         )}
 
-        {/* Call */}
         {actions[ActionType.Call] && (
           <button
             onClick={() => handleAction(ActionType.Call, actions[ActionType.Call].amount)}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-lg transition-colors shadow-lg"
+            className="px-4 py-2.5 sm:px-6 sm:py-3 bg-blue-600 active:bg-blue-800 hover:bg-blue-700 text-white rounded-xl font-bold text-sm sm:text-lg transition-colors shadow-lg min-h-[44px]"
           >
             Call ${actions[ActionType.Call].amount}
           </button>
         )}
 
-        {/* Raise */}
         {actions[ActionType.Raise] && (
           <>
             <button
               onClick={() => setRaiseAmount((prev) => Math.max(minRaise, prev - bigBlind))}
-              className="px-3 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-bold"
+              className="w-9 h-9 sm:w-auto sm:px-3 sm:py-3 bg-gray-700 active:bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-bold flex items-center justify-center min-h-[36px]"
             >
               -
             </button>
             <button
               onClick={() => handleAction(ActionType.Raise, raiseAmount || minRaise)}
-              className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-lg transition-colors shadow-lg"
+              className="px-4 py-2.5 sm:px-6 sm:py-3 bg-green-600 active:bg-green-800 hover:bg-green-700 text-white rounded-xl font-bold text-sm sm:text-lg transition-colors shadow-lg min-h-[44px]"
             >
               Raise ${raiseAmount || minRaise}
             </button>
             <button
               onClick={() => setRaiseAmount((prev) => Math.min(maxRaise, prev + bigBlind))}
-              className="px-3 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-bold"
+              className="w-9 h-9 sm:w-auto sm:px-3 sm:py-3 bg-gray-700 active:bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-bold flex items-center justify-center min-h-[36px]"
             >
               +
             </button>
           </>
         )}
 
-        {/* All-in */}
         {actions[ActionType.AllIn] && (
           <button
             onClick={() => handleAction(ActionType.AllIn, actions[ActionType.AllIn].amount)}
-            className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl font-bold text-lg transition-colors shadow-lg"
+            className="px-4 py-2.5 sm:px-6 sm:py-3 bg-yellow-600 active:bg-yellow-800 hover:bg-yellow-700 text-white rounded-xl font-bold text-sm sm:text-lg transition-colors shadow-lg min-h-[44px]"
           >
             All-in ${actions[ActionType.AllIn].amount}
           </button>

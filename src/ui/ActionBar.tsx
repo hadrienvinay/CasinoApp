@@ -70,16 +70,16 @@ export default function ActionBar() {
     };
 
     return (
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 bg-gray-900/90 rounded-xl px-6 py-4 backdrop-blur-sm">
-        <div className="text-sm font-medium text-gray-300">
+      <div className="fixed bottom-3 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 sm:gap-3 bg-gray-900/90 rounded-xl px-4 py-3 sm:px-6 sm:py-4 backdrop-blur-sm max-w-[95vw]">
+        <div className="text-xs sm:text-sm font-medium text-gray-300">
           Select cards to discard
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1.5 sm:gap-2">
           {player.holeCards.map((card, i) => (
             <button
               key={i}
               onClick={() => toggleDiscard(i)}
-              className={`w-14 h-20 rounded-lg border-2 flex flex-col items-center justify-center font-bold text-lg transition-colors ${
+              className={`w-11 h-16 sm:w-14 sm:h-20 rounded-lg border-2 flex flex-col items-center justify-center font-bold text-base sm:text-lg transition-colors ${
                 selectedDiscards.has(i)
                   ? 'border-red-500 bg-red-900/60'
                   : 'border-gray-600 bg-gray-800 hover:border-gray-400'
@@ -88,22 +88,22 @@ export default function ActionBar() {
               <span className={SUIT_COLORS[card.suit]}>
                 {card.rank}
               </span>
-              <span className={`text-sm ${SUIT_COLORS[card.suit]}`}>
+              <span className={`text-xs sm:text-sm ${SUIT_COLORS[card.suit]}`}>
                 {SUIT_SYMBOLS[card.suit]}
               </span>
             </button>
           ))}
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2 sm:gap-3">
           <button
             onClick={handleStandPat}
-            className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold transition-colors"
+            className="px-4 py-2.5 sm:px-5 sm:py-2.5 bg-green-600 active:bg-green-800 hover:bg-green-700 text-white rounded-lg font-bold text-sm sm:text-base transition-colors min-h-[44px]"
           >
             Stand Pat
           </button>
           <button
             onClick={handleDraw}
-            className="px-5 py-2.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-bold transition-colors"
+            className="px-4 py-2.5 sm:px-5 sm:py-2.5 bg-yellow-600 active:bg-yellow-800 hover:bg-yellow-700 text-white rounded-lg font-bold text-sm sm:text-base transition-colors min-h-[44px]"
           >
             Draw {selectedDiscards.size > 0 ? selectedDiscards.size : ''}
           </button>
@@ -127,11 +127,11 @@ export default function ActionBar() {
   };
 
   return (
-    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-gray-900/90 rounded-xl px-6 py-4 backdrop-blur-sm">
+    <div className="fixed bottom-3 left-1/2 -translate-x-1/2 flex flex-wrap items-center justify-center gap-2 sm:gap-3 bg-gray-900/90 rounded-xl px-3 py-3 sm:px-6 sm:py-4 backdrop-blur-sm max-w-[95vw]">
       {/* Fold */}
       <button
         onClick={() => handleAction({ type: ActionType.Fold, amount: 0 })}
-        className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold transition-colors"
+        className="px-4 py-2.5 sm:px-5 bg-red-600 active:bg-red-800 hover:bg-red-700 text-white rounded-lg font-bold text-sm sm:text-base transition-colors min-h-[44px]"
       >
         Fold
       </button>
@@ -140,7 +140,7 @@ export default function ActionBar() {
       {hasCheck && (
         <button
           onClick={() => handleAction({ type: ActionType.Check, amount: 0 })}
-          className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold transition-colors"
+          className="px-4 py-2.5 sm:px-5 bg-green-600 active:bg-green-800 hover:bg-green-700 text-white rounded-lg font-bold text-sm sm:text-base transition-colors min-h-[44px]"
         >
           Check
         </button>
@@ -150,7 +150,7 @@ export default function ActionBar() {
       {hasCall && (
         <button
           onClick={() => handleAction({ type: ActionType.Call, amount: toCall })}
-          className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-colors"
+          className="px-4 py-2.5 sm:px-5 bg-blue-600 active:bg-blue-800 hover:bg-blue-700 text-white rounded-lg font-bold text-sm sm:text-base transition-colors min-h-[44px]"
         >
           Call ${toCall}
         </button>
@@ -158,10 +158,10 @@ export default function ActionBar() {
 
       {/* Raise */}
       {hasRaise && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <button
             onClick={() => setRaiseAmount((prev) => Math.max(minRaise, (prev || minRaise) - state.config.bigBlind))}
-            className="w-8 h-8 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-bold text-lg transition-colors flex items-center justify-center"
+            className="w-9 h-9 sm:w-8 sm:h-8 bg-gray-700 active:bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-bold text-lg transition-colors flex items-center justify-center min-h-[36px]"
           >
             -
           </button>
@@ -172,17 +172,17 @@ export default function ActionBar() {
             step={state.config.bigBlind}
             value={raiseAmount || minRaise}
             onChange={(e) => setRaiseAmount(Number(e.target.value))}
-            className="w-24 accent-yellow-500"
+            className="w-20 sm:w-24 accent-yellow-500 h-6"
           />
           <button
             onClick={() => setRaiseAmount((prev) => Math.min(maxRaise, (prev || minRaise) + state.config.bigBlind))}
-            className="w-8 h-8 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-bold text-lg transition-colors flex items-center justify-center"
+            className="w-9 h-9 sm:w-8 sm:h-8 bg-gray-700 active:bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-bold text-lg transition-colors flex items-center justify-center min-h-[36px]"
           >
             +
           </button>
           <button
             onClick={() => handleAction({ type: ActionType.Raise, amount: raiseAmount || minRaise })}
-            className="px-5 py-2.5 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-bold transition-colors"
+            className="px-3 py-2.5 sm:px-5 bg-yellow-600 active:bg-yellow-800 hover:bg-yellow-700 text-white rounded-lg font-bold text-sm sm:text-base transition-colors min-h-[44px]"
           >
             Raise ${raiseAmount || minRaise}
           </button>
@@ -192,7 +192,7 @@ export default function ActionBar() {
       {/* All-In */}
       <button
         onClick={() => handleAction({ type: ActionType.AllIn, amount: player.chips })}
-        className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold transition-colors"
+        className="px-4 py-2.5 sm:px-5 bg-purple-600 active:bg-purple-800 hover:bg-purple-700 text-white rounded-lg font-bold text-sm sm:text-base transition-colors min-h-[44px]"
       >
         All-In ${player.chips}
       </button>

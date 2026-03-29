@@ -61,8 +61,8 @@ export default function MainMenu() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-green-950 flex items-center justify-center">
-      <div className="bg-gray-800/80 rounded-2xl p-8 max-w-md w-full mx-4 backdrop-blur-sm">
+    <div className="fixed inset-0 bg-gradient-to-b from-gray-900 to-green-950 flex justify-center overflow-y-auto">
+      <div className="bg-gray-800/80 rounded-2xl p-5 sm:p-8 max-w-md w-full mx-3 sm:mx-4 my-auto backdrop-blur-sm shrink-0">
         {/* Game Type Toggle */}
         <div className="flex gap-2 mb-6">
           <button

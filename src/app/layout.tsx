@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 
@@ -14,8 +14,15 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Texas Hold'em Poker",
-  description: "Play Texas Hold'em Poker against AI",
+  title: "Casino App",
+  description: "Play Texas Hold'em Poker and Blackjack",
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({

@@ -16,23 +16,23 @@ export default function BlackjackActionBar() {
   if (!state || state.phase !== BJPhase.PlayerTurn || isAnimating) return null;
 
   return (
-    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-3">
+    <div className="fixed bottom-3 left-1/2 -translate-x-1/2 flex gap-2 sm:gap-3">
       <button
         onClick={doHit}
-        className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-lg transition-colors shadow-lg"
+        className="px-6 py-3 sm:px-8 bg-green-600 active:bg-green-800 hover:bg-green-700 text-white rounded-xl font-bold text-base sm:text-lg transition-colors shadow-lg min-h-[48px]"
       >
         Hit
       </button>
       <button
         onClick={doStand}
-        className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-lg transition-colors shadow-lg"
+        className="px-6 py-3 sm:px-8 bg-blue-600 active:bg-blue-800 hover:bg-blue-700 text-white rounded-xl font-bold text-base sm:text-lg transition-colors shadow-lg min-h-[48px]"
       >
         Stand
       </button>
       {canDouble() && (
         <button
           onClick={doDoubleDown}
-          className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-xl font-bold text-lg transition-colors shadow-lg"
+          className="px-4 py-3 sm:px-6 bg-yellow-600 active:bg-yellow-800 hover:bg-yellow-700 text-white rounded-xl font-bold text-base sm:text-lg transition-colors shadow-lg min-h-[48px]"
         >
           Double
         </button>
@@ -40,7 +40,7 @@ export default function BlackjackActionBar() {
       {canSplit() && (
         <button
           onClick={doSplit}
-          className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-lg transition-colors shadow-lg"
+          className="px-4 py-3 sm:px-6 bg-purple-600 active:bg-purple-800 hover:bg-purple-700 text-white rounded-xl font-bold text-base sm:text-lg transition-colors shadow-lg min-h-[48px]"
         >
           Split
         </button>
