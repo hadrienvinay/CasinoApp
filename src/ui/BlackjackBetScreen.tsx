@@ -1,0 +1,108 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useBlackjackStore } from '@/store/blackjack-store';
+import { BJPhase } from '@/blackjack/types';
+
+export default function BlackjackBetScreen() {
+  const router = useRouter();
+  const state = useBlackjackStore((s) => s.state);
+  const isAnimating = useBlackjackStore((s) => s.isAnimating);
+  const doBet = useBlackjackStore((s) => s.doBet);
+  const doDeal = useBlackjackStore((s) => s.doDeal);
+  const startNextRound = useBlackjackStore((s) => s.startNextRound);
+  const [betAmount, setBetAmount] = useState(25);
+
+  if (!state) return null;
+
+  // Betting phase
+  if (state.phase === BJPhase.Betting) {
+    const presets = [10, 25, 50, 100];
+    const maxBet = Math.min(state.config.maxBet, state.chips);
+
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+        <div className="bg-gray-800/95 backdrop-blur-sm rounded-2xl p-8 max-w-sm w-full mx-4 text-center">
+          <h2 className="text-2xl font-bold text-white mb-2">Place Your Bet</h2>
+          <p className="text-gray-400 mb-6">Chips: ${state.chips.toLocaleString()}</p>
+
+          <div className="flex gap-2 justify-center mb-4">
+            {presets.map((p) => (
+              <button
+                key={p}
+                onClick={() => setBetAmount(Math.min(p, maxBet))}
+                disabled={p > state.chips}
+                className={`px-4 py-2 rounded-lg font-bold transition-colors ${
+                  betAmount === p
+                    ? 'bg-yellow-600 text-white'
+                    : p > state.chips
+                      ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                ${p}
+              </button>
+            ))}
+          </div>
+
+          <input
+            type="range"
+            min={state.config.minBet}
+            max={maxBet}
+            step={5}
+            value={betAmount}
+            onChange={(e) => setBetAmount(Number(e.target.value))}
+            className="w-full mb-2"
+          />
+          <p className="text-white font-bold text-xl mb-6">${betAmount}</p>
+
+          <button
+            onClick={() => {
+              doBet(betAmount);
+              // Small delay then deal
+              setTimeout(() => doDeal(), 300);
+            }}
+            className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-xl transition-colors"
+          >
+            Deal
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Settle phase
+  if (state.phase === BJPhase.Settle && !isAnimating) {
+    const isGameOver = state.chips <= 0;
+
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+        <div className="bg-gray-800/95 backdrop-blur-sm rounded-2xl p-8 max-w-sm w-full mx-4 text-center">
+          <h2 className="text-2xl font-bold text-white mb-4">{state.message}</h2>
+
+          {isGameOver ? (
+            <>
+              <p className="text-red-400 text-lg mb-6">No chips remaining!</p>
+              <button
+                onClick={() => router.push('/')}
+                className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xl transition-colors"
+              >
+                Back to Menu
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={startNextRound}
+              className="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold text-xl transition-colors"
+            >
+              Next Round
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}

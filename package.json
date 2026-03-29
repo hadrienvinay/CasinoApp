@@ -3,24 +3,34 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "tsx server.ts",
     "build": "next build",
-    "start": "next start",
+    "start": "NODE_ENV=production tsx server.ts",
     "lint": "next lint"
   },
   "dependencies": {
+    "@types/express": "^5.0.6",
+    "express": "^5.2.1",
+    "gsap": "^3.14.2",
+    "next": "14.2.35",
+    "pixi.js": "^8.17.1",
+    "pokersolver": "^2.1.4",
     "react": "^18",
     "react-dom": "^18",
-    "next": "14.2.35"
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
+    "zustand": "^5.0.12"
   },
   "devDependencies": {
-    "typescript": "^5",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.35",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "eslint": "^8",
-    "eslint-config-next": "14.2.35"
+    "tsx": "^4.21.0",
+    "typescript": "^5",
+    "vitest": "^4.1.2"
   }
 }

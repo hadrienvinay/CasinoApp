@@ -1,0 +1,42 @@
+export interface SeatPosition {
+  x: number;
+  y: number;
+  labelAnchor: 'top' | 'bottom';
+}
+
+// Positions for seats around an elliptical table
+// Canvas is 1280x720, table centered at 640x340
+const TABLE_CENTER_X = 640;
+const TABLE_CENTER_Y = 340;
+const RADIUS_X = 470;
+const RADIUS_Y = 250;
+
+export function getSeatPositions(playerCount: number): SeatPosition[] {
+  const positions: SeatPosition[] = [];
+
+  // Human player always at the bottom center
+  // AI players distributed evenly around the top
+  for (let i = 0; i < playerCount; i++) {
+    // Start from bottom (π/2) and go clockwise
+    const angle = (Math.PI / 2) + (2 * Math.PI * i) / playerCount;
+    const x = TABLE_CENTER_X + RADIUS_X * Math.cos(angle);
+    const y = TABLE_CENTER_Y + RADIUS_Y * Math.sin(angle);
+
+    positions.push({
+      x,
+      y,
+      labelAnchor: y > TABLE_CENTER_Y ? 'bottom' : 'top',
+    });
+  }
+
+  return positions;
+}
+
+export const COMMUNITY_CARDS_Y = 330;
+export const COMMUNITY_CARDS_START_X = 480;
+export const COMMUNITY_CARD_SPACING = 80;
+
+export const CARD_WIDTH = 60;
+export const CARD_HEIGHT = 84;
+
+export const DECK_POSITION = { x: 800, y: 180 };
