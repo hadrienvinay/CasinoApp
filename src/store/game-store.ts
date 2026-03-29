@@ -303,8 +303,8 @@ export const useGameStore = create<GameStore>()(persist((set, get) => ({
       if (!state || !state.allInRunout) return;
       if (state.phase === Phase.Showdown || state.phase === Phase.Settle) return;
 
-      // Wait before dealing next phase
-      await delay(1500);
+      // Brief pause before dealing next community card
+      await delay(800);
 
       const prevPhase = state.phase;
       const newState = advanceRunout(state);
@@ -325,9 +325,12 @@ export const useGameStore = create<GameStore>()(persist((set, get) => ({
         handHistory: [...s.handHistory, ...entries],
       }));
 
-      // Wait for the card animation to finish before next step
-      await delay(200);
+      // Wait for the card deal/flip animation to finish
+      await delay(300);
       await waitForAnimation();
+
+      // Pause after the card is revealed so the player can see it
+      await delay(1200);
 
       // Continue if still running out
       if (newState.allInRunout && newState.phase !== Phase.Showdown && newState.phase !== Phase.Settle) {
