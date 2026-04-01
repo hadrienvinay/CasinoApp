@@ -58,7 +58,7 @@ export default function MultiplayerPage() {
 
   return (
     <div className="fixed inset-0 bg-gradient-to-b from-gray-900 to-green-950 flex justify-center overflow-y-auto">
-      <div className="bg-gray-800/80 rounded-2xl p-5 sm:p-8 max-w-md w-full mx-3 sm:mx-4 my-auto backdrop-blur-sm shrink-0">
+      <div className="mt-5 bg-gray-800/80 rounded-2xl p-5 sm:p-8 max-w-md w-full mx-3 sm:mx-4 my-auto backdrop-blur-sm shrink-0">
         <h1 className="text-3xl font-bold text-center mb-2 text-white">Multiplayer</h1>
         <p className="text-center text-gray-400 mb-8">Texas Hold&apos;em</p>
 

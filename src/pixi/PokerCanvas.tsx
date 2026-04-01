@@ -608,11 +608,26 @@ function drawHoleCards(
 
 function drawCommunityCards(app: Application, container: Container, cards: Card[], highlightCards?: Set<string>) {
   cards.forEach((card, i) => {
+    const cardKey = cardToString(card);
+    const isHighlighted = highlightCards?.has(cardKey) ?? false;
+
+    const cx = COMMUNITY_CARDS_START_X + i * COMMUNITY_CARD_SPACING;
+    const cy = COMMUNITY_CARDS_Y;
+
+    if (isHighlighted) {
+      const glow = new Graphics();
+      glow.roundRect(-CARD_WIDTH / 2 - 3, -CARD_HEIGHT / 2 - 3, CARD_WIDTH + 6, CARD_HEIGHT + 6, 8);
+      glow.fill({ color: 0xf1c40f, alpha: 0.5 });
+      glow.x = cx;
+      glow.y = cy;
+      container.addChild(glow);
+    }
+
     const texture = getCardTexture(app, card);
     const sprite = new Sprite(texture);
     sprite.anchor.set(0.5);
-    sprite.x = COMMUNITY_CARDS_START_X + i * COMMUNITY_CARD_SPACING;
-    sprite.y = COMMUNITY_CARDS_Y;
+    sprite.x = cx;
+    sprite.y = cy;
     sprite.width = CARD_WIDTH;
     sprite.height = CARD_HEIGHT;
     container.addChild(sprite);
