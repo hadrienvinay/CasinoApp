@@ -48,14 +48,14 @@ app.prepare().then(() => {
         // Try reconnection first
         const existingRoom = getRoom(data.roomId);
         if (existingRoom && existingRoom.status === 'playing') {
-          const reconnected = reconnectPlayer('', socket.id, data.roomId, data.playerName);
-          if (reconnected) {
+          const result = reconnectPlayer(socket.id, data.roomId, data.playerName);
+          if (result) {
             socket.join(data.roomId);
-            if (reconnected.gameController) {
-              reconnected.gameController.handleReconnect('', socket.id);
+            if (result.room.gameController) {
+              result.room.gameController.handleReconnect(result.oldSocketId, socket.id);
             }
-            io.to(data.roomId).emit('room-update', toRoomInfo(reconnected));
-            broadcastGameState(reconnected);
+            io.to(data.roomId).emit('room-update', toRoomInfo(result.room));
+            broadcastGameState(result.room);
             return;
           }
         }
@@ -108,6 +108,14 @@ app.prepare().then(() => {
       if (result.error) {
         socket.emit('error', { message: result.error });
       }
+    });
+
+    // --- Rebuy ---
+    socket.on('rebuy', () => {
+      const room = getRoomBySocketId(socket.id);
+      if (!room?.gameController) return socket.emit('error', { message: 'No active game' });
+
+      room.gameController.handleRebuy(socket.id);
     });
 
     // --- New Hand ---

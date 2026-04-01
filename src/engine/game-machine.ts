@@ -89,6 +89,7 @@ export function startHand(state: GameState): GameState {
   s.minRaise = s.config.bigBlind;
   s.winners = [];
   s.drawRound = 0;
+  s.allInRunout = false;
 
   // Default variant if not set
   if (!s.config.variant) {
@@ -106,12 +107,26 @@ export function startHand(state: GameState): GameState {
     p.lastAction = undefined;
   });
 
+  // Track current dealer before removing busted players
+  const prevDealerId = s.players[s.dealerIndex % s.players.length]?.id;
+
   // Remove busted players (including human)
   s.players = s.players.filter((p) => p.chips > 0);
 
-  // Rotate dealer
+  if (s.players.length < 2) return s;
+
+  // Rotate dealer — find previous dealer's new index (or next seat if they busted)
   if (s.handNumber > 1) {
-    s.dealerIndex = (s.dealerIndex + 1) % s.players.length;
+    const prevIdx = s.players.findIndex((p) => p.id === prevDealerId);
+    if (prevIdx !== -1) {
+      // Previous dealer still in game — rotate to next
+      s.dealerIndex = (prevIdx + 1) % s.players.length;
+    } else {
+      // Previous dealer busted — dealer index stays at same position (wraps)
+      s.dealerIndex = s.dealerIndex % s.players.length;
+    }
+  } else {
+    s.dealerIndex = s.dealerIndex % s.players.length;
   }
 
   // Shuffle deck

@@ -136,17 +136,18 @@ export function markDisconnected(socketId: string): Room | null {
 }
 
 export function reconnectPlayer(
-  oldSocketId: string,
   newSocketId: string,
   roomId: string,
   playerName: string,
-): Room | null {
+): { room: Room; oldSocketId: string } | null {
   const room = rooms.get(roomId);
   if (!room) return null;
 
   // Find the disconnected player by name
   for (const [sid, player] of room.players) {
     if (player.name === playerName && !player.isConnected) {
+      const oldSid = sid;
+
       // Remove old entry
       room.players.delete(sid);
       socketToRoom.delete(sid);
@@ -157,11 +158,11 @@ export function reconnectPlayer(
       room.players.set(newSocketId, player);
       socketToRoom.set(newSocketId, roomId);
 
-      if (room.hostId === oldSocketId) {
+      if (room.hostId === oldSid) {
         room.hostId = newSocketId;
       }
 
-      return room;
+      return { room, oldSocketId: oldSid };
     }
   }
   return null;

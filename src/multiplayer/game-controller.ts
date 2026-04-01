@@ -17,7 +17,7 @@ import { RoomConfig, RoomPlayer } from './types';
 
 const TURN_TIMEOUT_MS = 30_000;
 const TIMER_TICK_MS = 1_000;
-const RUNOUT_DELAY_MS = 1_500;
+const RUNOUT_DELAY_MS = 2_500;
 
 // Dummy card for hiding opponents' hands
 const DUMMY_CARD: Card = { rank: Rank.Two, suit: Suit.Spades };
@@ -32,6 +32,7 @@ export class GameController {
   private turnTimeout: ReturnType<typeof setTimeout> | null = null;
   private turnInterval: ReturnType<typeof setInterval> | null = null;
   private turnStartedAt = 0;
+  private settleTimeout: ReturnType<typeof setTimeout> | null = null;
   private disconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(
@@ -94,6 +95,20 @@ export class GameController {
   }
 
   startNextHand(): void {
+    // Cancel any pending settle transition
+    if (this.settleTimeout) {
+      clearTimeout(this.settleTimeout);
+      this.settleTimeout = null;
+    }
+
+    // Don't start a new hand if fewer than 2 players have chips
+    const playersWithChips = this.state.players.filter((p) => p.chips > 0);
+    if (playersWithChips.length < 2) {
+      // Just broadcast current state — UI should show winner
+      this.broadcastState();
+      return;
+    }
+
     this.state = startHand(this.state);
     this.broadcastState();
     this.startTurnTimer();
@@ -109,8 +124,15 @@ export class GameController {
     const available = getAvailableActions(this.state, activePlayer);
     const isValid = available.some((a) => {
       if (a.type !== action.type) return false;
-      if (action.type === ActionType.Raise || action.type === ActionType.AllIn) {
-        return action.amount >= 0; // Server trusts amount within bounds
+      if (action.type === ActionType.Raise) {
+        // Enforce minimum raise and cap at player's chips
+        const minRaiseAmount = a.amount; // from getAvailableActions
+        return action.amount >= minRaiseAmount && action.amount <= activePlayer.chips;
+      }
+      if (action.type === ActionType.AllIn) {
+        // All-in is always the player's full stack
+        action.amount = activePlayer.chips;
+        return true;
       }
       return true;
     });
@@ -123,6 +145,27 @@ export class GameController {
 
     const prevPhase = this.state.phase;
     this.state = advance(this.state, action);
+
+    // If we went straight to Settle from a betting phase (showdown scenario),
+    // broadcast an intermediate Showdown state so clients can see opponents' cards.
+    const isShowdown =
+      this.state.phase === Phase.Settle &&
+      prevPhase !== Phase.Settle &&
+      prevPhase !== Phase.Showdown &&
+      this.state.winners.length > 0 &&
+      this.state.players.filter((p) => !p.isFolded && p.holeCards).length > 1;
+
+    if (isShowdown) {
+      // Broadcast showdown state (with revealed cards) before settle
+      const showdownState: GameState = JSON.parse(JSON.stringify(this.state));
+      showdownState.phase = Phase.Showdown;
+      this.state = showdownState;
+      this.broadcastState();
+
+      // After a delay, move to settle
+      this.scheduleSettle(JSON.parse(JSON.stringify(this.state)));
+      return {};
+    }
 
     this.broadcastState();
 
@@ -149,9 +192,14 @@ export class GameController {
     const player = this.state.players.find((p) => p.id === socketId);
     if (!player) return;
 
-    // If it's their turn, auto-fold
+    // If it's their turn and they can act (not all-in), auto-fold
     const activePlayer = this.state.players[this.state.activePlayerIndex];
-    if (activePlayer?.id === socketId && !activePlayer.isFolded) {
+    if (
+      activePlayer?.id === socketId &&
+      !activePlayer.isFolded &&
+      !activePlayer.isAllIn &&
+      !this.state.allInRunout
+    ) {
       this.handleAction(socketId, { type: ActionType.Fold, amount: 0 });
     }
 
@@ -193,9 +241,11 @@ export class GameController {
     // Remove deck
     clone.deck = [];
 
-    // Filter hole cards
+    // Filter hole cards — reveal during showdown, settle, or all-in runout
     const isReveal =
-      clone.phase === Phase.Showdown || clone.phase === Phase.Settle;
+      clone.phase === Phase.Showdown ||
+      clone.phase === Phase.Settle ||
+      !!clone.allInRunout;
 
     for (const player of clone.players) {
       if (player.id !== socketId && !isReveal) {
@@ -222,8 +272,26 @@ export class GameController {
     return { state: clone, availableActions, isYourTurn };
   }
 
+  handleRebuy(socketId: string): void {
+    const player = this.state.players.find((p) => p.id === socketId);
+    if (!player) return;
+    player.chips = this.state.config.startingChips;
+    this.broadcastState();
+  }
+
   getState(): GameState {
     return this.state;
+  }
+
+  private scheduleSettle(showdownState: GameState): void {
+    if (this.settleTimeout) clearTimeout(this.settleTimeout);
+    this.settleTimeout = setTimeout(() => {
+      this.settleTimeout = null;
+      const settleState: GameState = JSON.parse(JSON.stringify(showdownState));
+      settleState.phase = Phase.Settle;
+      this.state = settleState;
+      this.broadcastState();
+    }, 3000);
   }
 
   private startTurnTimer(): void {
@@ -261,6 +329,8 @@ export class GameController {
   }
 
   private async processRunout(): Promise<void> {
+    let isFirstStep = true;
+
     const runStep = async () => {
       if (!this.state.allInRunout) return;
       if (
@@ -269,9 +339,24 @@ export class GameController {
       )
         return;
 
-      await delay(RUNOUT_DELAY_MS);
+      // Longer initial delay to let client finish dealing/action animations
+      await delay(isFirstStep ? RUNOUT_DELAY_MS + 1000 : RUNOUT_DELAY_MS);
+      isFirstStep = false;
 
       this.state = advanceRunout(this.state);
+
+      // If advanceRunout resolved to Settle (after River), insert a Showdown phase
+      if (this.state.phase === Phase.Settle && this.state.winners.length > 0) {
+        const showdownState: GameState = JSON.parse(JSON.stringify(this.state));
+        showdownState.phase = Phase.Showdown;
+        this.state = showdownState;
+        this.broadcastState();
+
+        // After delay, transition to settle
+        this.scheduleSettle(showdownState);
+        return;
+      }
+
       this.broadcastState();
 
       if (
@@ -288,6 +373,10 @@ export class GameController {
 
   destroy(): void {
     this.clearTurnTimer();
+    if (this.settleTimeout) {
+      clearTimeout(this.settleTimeout);
+      this.settleTimeout = null;
+    }
     for (const timer of this.disconnectTimers.values()) {
       clearTimeout(timer);
     }

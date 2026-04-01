@@ -580,8 +580,8 @@ export default function BlackjackCanvas() {
     prevDealerCountRef.current = state.dealerCards.length;
     prevPlayerCardsRef.current = state.playerHands.map((h) => h.cards.length);
 
-    // Deal animation
-    if (state.phase === BJPhase.PlayerTurn && prevPhase === BJPhase.Dealing) {
+    // Deal animation: fires when all 4 cards arrive at once (store does one set() call)
+    if (state.phase === BJPhase.Dealing && state.dealerCards.length === 2 && prevDealerCount === 0) {
       playDealAnimation(state);
       return;
     }
@@ -600,11 +600,13 @@ export default function BlackjackCanvas() {
 
     // Dealer draw animation
     if (state.dealerCards.length > prevDealerCount && prevDealerCount >= 2) {
-      // Render base state first, then animate new cards
       renderGame(state);
       playDealerAnimation(state, prevDealerCount);
       return;
     }
+
+    // Don't interrupt a running animation with a static render
+    if (animatingRef.current) return;
 
     renderGame(state);
   }, [state, renderGame, playDealAnimation, playHitAnimation, playDealerAnimation]);

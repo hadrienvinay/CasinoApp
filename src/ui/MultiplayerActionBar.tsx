@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useMultiplayerStore } from '@/store/multiplayer-store';
 import { ActionType, Phase } from '@/engine/types';
-import { playCheck, playFold, playAllIn, playChipBet } from '@/lib/sounds';
+import { playCheck, playFold, playAllIn, playCallAllIn, playChipBet, playRaise } from '@/lib/sounds';
 
 export default function MultiplayerActionBar() {
   const gameState = useMultiplayerStore((s) => s.gameState);
@@ -45,17 +45,20 @@ export default function MultiplayerActionBar() {
   }
 
   const bigBlind = gameState.config.bigBlind;
-  const minRaise = gameState.minRaise;
   const myPlayer = gameState.players.find((p) => p.id === mySocketId);
-  const maxRaise = myPlayer ? myPlayer.chips + myPlayer.currentBet : 0;
+  const minRaise = actions[ActionType.Raise]?.amount ?? gameState.minRaise;
+  const maxRaise = myPlayer ? myPlayer.chips : 0;
+
+  const toCall = gameState.currentBet - (myPlayer?.currentBet ?? 0);
+  const isCallAllIn = !!actions[ActionType.AllIn] && !actions[ActionType.Call] && toCall > 0;
 
   const handleAction = (type: ActionType, amount = 0) => {
     switch (type) {
       case ActionType.Check: playCheck(); break;
       case ActionType.Fold: playFold(); break;
-      case ActionType.AllIn: playAllIn(); break;
-      case ActionType.Call:
-      case ActionType.Raise: playChipBet(); break;
+      case ActionType.AllIn: (isCallAllIn ? playCallAllIn : playAllIn)(); break;
+      case ActionType.Call: playChipBet(); break;
+      case ActionType.Raise: playRaise(); break;
     }
     submitAction({ type, amount });
   };

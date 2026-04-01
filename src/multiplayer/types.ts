@@ -30,6 +30,7 @@ export interface ClientMessages {
   'start-game': Record<string, never>;
   'player-action': { action: PlayerAction };
   'new-hand': Record<string, never>;
+  rebuy: Record<string, never>;
 }
 
 // Server -> Client messages

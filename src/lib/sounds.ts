@@ -20,25 +20,34 @@ function getCtx(): AudioContext {
 // Master volume (0-1)
 let masterVolume = 0.35;
 
+// --- MP3 playback ---
+
+const mp3Cache: Record<string, HTMLAudioElement> = {};
+
+function preload(src: string): HTMLAudioElement {
+  if (!mp3Cache[src]) {
+    const el = new Audio(src);
+    el.preload = 'auto';
+    mp3Cache[src] = el;
+  }
+  return mp3Cache[src];
+}
+
+function playMp3(src: string, volume = 1.0) {
+  if (typeof window === 'undefined') return;
+  const base = preload(src);
+  // Clone so rapid successive calls overlap cleanly
+  const audio = base.cloneNode() as HTMLAudioElement;
+  audio.volume = Math.min(1, masterVolume * volume);
+  audio.play().catch(() => {});
+}
+
 export function setVolume(v: number) {
   masterVolume = Math.max(0, Math.min(1, v));
 }
 
 export function getVolume(): number {
   return masterVolume;
-}
-
-// --- Noise helpers ---
-
-function createNoiseBuffer(ctx: AudioContext, duration: number): AudioBuffer {
-  const sampleRate = ctx.sampleRate;
-  const length = Math.floor(sampleRate * duration);
-  const buffer = ctx.createBuffer(1, length, sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i = 0; i < length; i++) {
-    data[i] = Math.random() * 2 - 1;
-  }
-  return buffer;
 }
 
 function gainNode(ctx: AudioContext, volume: number): GainNode {
@@ -49,116 +58,24 @@ function gainNode(ctx: AudioContext, volume: number): GainNode {
 
 // --- Sound effects ---
 
-/** Card sliding from deck — soft paper swoosh */
+/** Card sliding from deck — uses deal.mp3 */
 export function playCardDeal() {
-  const ctx = getCtx();
-  const now = ctx.currentTime;
-
-  const noise = ctx.createBufferSource();
-  noise.buffer = createNoiseBuffer(ctx, 0.15);
-
-  // Lower bandpass for a warmer paper sound
-  const filter = ctx.createBiquadFilter();
-  filter.type = 'bandpass';
-  filter.frequency.value = 1800;
-  filter.Q.value = 0.5;
-
-  // Gentle lowpass to remove harsh highs
-  const lp = ctx.createBiquadFilter();
-  lp.type = 'lowpass';
-  lp.frequency.value = 3000;
-
-  const g = gainNode(ctx, 0.18);
-  g.gain.setValueAtTime(0.18 * masterVolume, now);
-  g.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-
-  noise.connect(filter);
-  filter.connect(lp);
-  lp.connect(g);
-  g.connect(ctx.destination);
-  noise.start(now);
-  noise.stop(now + 0.15);
+  playMp3('/assets/cards/deal.mp3', 0.5);
 }
 
-/** Card flip — soft thud */
+/** Card flip — uses turn.mp3 */
 export function playCardFlip() {
-  const ctx = getCtx();
-  const now = ctx.currentTime;
-
-  // Soft thump instead of sharp click
-  const osc = ctx.createOscillator();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(800, now);
-  osc.frequency.exponentialRampToValueAtTime(300, now + 0.06);
-
-  const g = gainNode(ctx, 0.12);
-  g.gain.setValueAtTime(0.12 * masterVolume, now);
-  g.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-
-  // Gentle noise for texture
-  const noise = ctx.createBufferSource();
-  noise.buffer = createNoiseBuffer(ctx, 0.06);
-  const nf = ctx.createBiquadFilter();
-  nf.type = 'bandpass';
-  nf.frequency.value = 1200;
-  nf.Q.value = 0.4;
-  const ng = gainNode(ctx, 0.08);
-  ng.gain.setValueAtTime(0.08 * masterVolume, now);
-  ng.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-
-  osc.connect(g);
-  g.connect(ctx.destination);
-  noise.connect(nf);
-  nf.connect(ng);
-  ng.connect(ctx.destination);
-
-  osc.start(now);
-  osc.stop(now + 0.08);
-  noise.start(now);
-  noise.stop(now + 0.06);
+  playMp3('/assets/cards/turn.mp3', 0.5);
 }
 
-/** Chip bet — soft ceramic clink */
+/** Chip bet / call — uses bet.mp3 */
 export function playChipBet() {
-  const ctx = getCtx();
-  const now = ctx.currentTime;
+  playMp3('/assets/chips/bet.mp3', 0.25);
+}
 
-  // Lower, warmer tones for a ceramic chip feel
-  const freqs = [1200, 1800];
-  for (const freq of freqs) {
-    const osc = ctx.createOscillator();
-    osc.type = 'sine';
-    osc.frequency.value = freq;
-
-    const lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.value = 2500;
-
-    const g = gainNode(ctx, 0.08);
-    g.gain.setValueAtTime(0.08 * masterVolume, now);
-    g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-
-    osc.connect(lp);
-    lp.connect(g);
-    g.connect(ctx.destination);
-    osc.start(now);
-    osc.stop(now + 0.2);
-  }
-
-  // Soft noise thud for the landing
-  const noise = ctx.createBufferSource();
-  noise.buffer = createNoiseBuffer(ctx, 0.04);
-  const nf = ctx.createBiquadFilter();
-  nf.type = 'lowpass';
-  nf.frequency.value = 1500;
-  const ng = gainNode(ctx, 0.1);
-  ng.gain.setValueAtTime(0.1 * masterVolume, now);
-  ng.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
-  noise.connect(nf);
-  nf.connect(ng);
-  ng.connect(ctx.destination);
-  noise.start(now);
-  noise.stop(now + 0.04);
+/** Raise — uses raise.mp3 */
+export function playRaise() {
+  playMp3('/assets/chips/raise.mp3', 0.5);
 }
 
 /** Chips win — gentle cascade of soft clinks */
@@ -214,70 +131,34 @@ export function playCheck() {
   }
 }
 
-/** Fold — very soft swoosh */
+/** Fold — uses fold.mp3 */
 export function playFold() {
-  const ctx = getCtx();
-  const now = ctx.currentTime;
-
-  const noise = ctx.createBufferSource();
-  noise.buffer = createNoiseBuffer(ctx, 0.3);
-
-  const filter = ctx.createBiquadFilter();
-  filter.type = 'lowpass';
-  filter.frequency.setValueAtTime(1500, now);
-  filter.frequency.exponentialRampToValueAtTime(150, now + 0.25);
-
-  const g = gainNode(ctx, 0.1);
-  g.gain.setValueAtTime(0.1 * masterVolume, now);
-  g.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-
-  noise.connect(filter);
-  filter.connect(g);
-  g.connect(ctx.destination);
-  noise.start(now);
-  noise.stop(now + 0.3);
+  playMp3('/assets/cards/fold.mp3', 0.3);
 }
 
-/** All-in — warm rising tone + soft thud */
+/** All-in (aggressive) — uses all-in.mp3 */
 export function playAllIn() {
-  const ctx = getCtx();
-  const now = ctx.currentTime;
+  playMp3('/assets/ui/all-in.mp3', 0.5);
+}
 
-  // Warm rising tone (sine instead of sawtooth)
-  const osc = ctx.createOscillator();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(180, now);
-  osc.frequency.exponentialRampToValueAtTime(500, now + 0.25);
+/** Call an all-in — uses call-all-in.mp3 */
+export function playCallAllIn() {
+  playMp3('/assets/ui/call-all-in.mp3', 0.5);
+}
 
-  const lp = ctx.createBiquadFilter();
-  lp.type = 'lowpass';
-  lp.frequency.value = 1200;
+/** Game start — multiplayer */
+export function playGameStart() {
+  playMp3('/assets/ui/piquer-pognon.mp3', 0.8);
+}
 
-  const g = gainNode(ctx, 0.1);
-  g.gain.setValueAtTime(0.03 * masterVolume, now);
-  g.gain.linearRampToValueAtTime(0.1 * masterVolume, now + 0.18);
-  g.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+/** Defeat — player eliminated */
+export function playDefeat() {
+  playMp3('/assets/ui/perdu.mp3', 0.8);
+}
 
-  osc.connect(lp);
-  lp.connect(g);
-  g.connect(ctx.destination);
-  osc.start(now);
-  osc.stop(now + 0.4);
-
-  // Soft low thud
-  const impact = ctx.createOscillator();
-  impact.type = 'sine';
-  impact.frequency.setValueAtTime(120, now + 0.22);
-  impact.frequency.exponentialRampToValueAtTime(50, now + 0.5);
-
-  const ig = gainNode(ctx, 0.15);
-  ig.gain.setValueAtTime(0.15 * masterVolume, now + 0.22);
-  ig.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-
-  impact.connect(ig);
-  ig.connect(ctx.destination);
-  impact.start(now + 0.22);
-  impact.stop(now + 0.5);
+/** Con — human wins all-in and eliminates an opponent */
+export function playCon() {
+  playMp3('/assets/ui/con.mp3', 0.8);
 }
 
 /** Win notification — warm ascending chime */

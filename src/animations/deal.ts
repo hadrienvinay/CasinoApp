@@ -16,8 +16,13 @@ export async function animateDeal(
   players: Player[],
   seats: SeatPosition[],
   deckPosition: { x: number; y: number },
+  localPlayerId?: string,
 ): Promise<void> {
-  const humanSprites: { sprite: Sprite; player: Player }[] = [];
+  // Collect sprites per player so we can flip the right cards later
+  const localSprites: { sprite: Sprite; cardRound: number }[] = [];
+  const localPlayer = players.find((p) =>
+    localPlayerId ? p.id === localPlayerId : p.isHuman,
+  );
 
   // Deal 2 rounds: first card to each player, then second card
   for (let round = 0; round < 2; round++) {
@@ -58,21 +63,19 @@ export async function animateDeal(
         ease: 'power2.out',
       });
 
-      if (player.isHuman && player.holeCards) {
-        humanSprites.push({ sprite, player });
+      // Track only the local player's card sprites
+      if (player === localPlayer && player.holeCards) {
+        localSprites.push({ sprite, cardRound: round });
       }
 
       await delayMs(40);
     }
   }
 
-  // Flip human player's cards face-up
-  for (const { sprite, player } of humanSprites) {
-    if (!player.holeCards) continue;
-    const cardIndex = humanSprites.indexOf(
-      humanSprites.find((h) => h.sprite === sprite)!,
-    );
-    const card = player.holeCards[cardIndex];
+  // Flip only the local player's cards face-up
+  for (const { sprite, cardRound } of localSprites) {
+    if (!localPlayer?.holeCards) continue;
+    const card = localPlayer.holeCards[cardRound];
     if (!card) continue;
 
     const faceTexture = getCardTexture(app, card);

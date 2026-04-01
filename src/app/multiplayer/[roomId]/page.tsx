@@ -9,6 +9,7 @@ import MultiplayerLobby from '@/ui/MultiplayerLobby';
 import MultiplayerActionBar from '@/ui/MultiplayerActionBar';
 import MultiplayerWinnerBanner from '@/ui/MultiplayerWinnerBanner';
 import LandscapePrompt from '@/ui/LandscapePrompt';
+import { playGameStart } from '@/lib/sounds';
 
 const PokerCanvas = dynamic(() => import('@/pixi/PokerCanvas'), { ssr: false });
 
@@ -64,6 +65,14 @@ export default function MultiplayerRoomPage() {
     setHasJoined(true);
     setShowNameInput(false);
   };
+
+  // Play game start sound when the game transitions from lobby to active
+  useEffect(() => {
+    if (!gameState) return;
+    const timer = setTimeout(() => playGameStart(), 800);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!gameState]);
 
   const updateScale = useCallback(() => {
     const scaleX = window.innerWidth / BASE_W;

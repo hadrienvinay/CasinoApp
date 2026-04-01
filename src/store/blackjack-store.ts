@@ -61,18 +61,17 @@ export const useBlackjackStore = create<BlackjackStore>()(persist((set, get) => 
     if (!state || state.phase !== BJPhase.Dealing) return;
     set({ isAnimating: true });
 
-    // Deal 4 cards one by one: player, dealer, player, dealer
-    const dealOrder: ('player' | 'dealer')[] = ['player', 'dealer', 'player', 'dealer'];
+    // Deal all 4 cards at once into state — the canvas animation will handle
+    // the per-card deal sequence visually (cards fly from deck one by one)
     let current = state;
-    for (const target of dealOrder) {
-      playCardDeal();
+    for (const target of (['player', 'dealer', 'player', 'dealer'] as const)) {
       current = dealOneCard(current, target);
-      set({ state: current });
-      await delay(500);
     }
+    set({ state: current });
 
-    // Pause to see the hand before checking blackjacks
-    await delay(600);
+    // Wait for deal animation to finish:
+    // 4 cards × (slide 200ms + flip 300ms + pause 80ms) ≈ 2320ms, +480ms buffer
+    await delay(2800);
 
     const finalState = checkBlackjacks(current);
     set({ state: finalState, isAnimating: false });

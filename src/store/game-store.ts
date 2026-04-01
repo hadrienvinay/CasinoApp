@@ -13,7 +13,7 @@ import { createInitialState, startHand, advance, isDrawPhase, advanceRunout } fr
 import { getAvailableActions } from '@/engine/betting';
 import { getAIDecision, getAIDrawDecision, getAIThinkDelay } from '@/ai/ai-player';
 import { recordHumanAction } from '@/ai/strategies/hard';
-import { playCheck, playFold, playAllIn, playChipBet, playWinChime } from '@/lib/sounds';
+import { playCheck, playFold, playAllIn, playChipBet, playRaise, playWinChime } from '@/lib/sounds';
 
 interface GameStore {
   state: GameState | null;
@@ -386,8 +386,8 @@ function playActionSound(type: ActionType) {
     case ActionType.Check: playCheck(); break;
     case ActionType.Fold: playFold(); break;
     case ActionType.AllIn: playAllIn(); break;
-    case ActionType.Call:
-    case ActionType.Raise: playChipBet(); break;
+    case ActionType.Call: playChipBet(); break;
+    case ActionType.Raise: playRaise(); break;
   }
 }
 

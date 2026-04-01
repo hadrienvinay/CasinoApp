@@ -28,6 +28,7 @@ interface MultiplayerStore {
   startGame: () => void;
   submitAction: (action: PlayerAction) => void;
   nextHand: () => void;
+  rebuy: () => void;
 
   // Internal
   _setConnected: (connected: boolean, socketId: string | null) => void;
@@ -81,6 +82,11 @@ export const useMultiplayerStore = create<MultiplayerStore>()((set) => ({
   nextHand: () => {
     const socket = getSocket();
     socket.emit('new-hand', {});
+  },
+
+  rebuy: () => {
+    const socket = getSocket();
+    socket.emit('rebuy', {});
   },
 
   _setConnected: (connected, socketId) => set({ isConnected: connected, mySocketId: socketId }),

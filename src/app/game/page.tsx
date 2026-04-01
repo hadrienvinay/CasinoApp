@@ -4,11 +4,15 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useGameStore } from '@/store/game-store';
+import { Phase } from '@/engine/types';
 import ActionBar from '@/ui/ActionBar';
 import GameHUD from '@/ui/GameHUD';
 import WinnerBanner from '@/ui/WinnerBanner';
 import HandHistory from '@/ui/HandHistory';
 import LandscapePrompt from '@/ui/LandscapePrompt';
+
+// Phases too transient to resume after a refresh — restart hand instead
+const TRANSIENT_PHASES = new Set([Phase.Idle, Phase.Blinds, Phase.Deal]);
 
 const PokerCanvas = dynamic(() => import('@/pixi/PokerCanvas'), { ssr: false });
 
@@ -58,6 +62,25 @@ export default function GamePage() {
       newHand();
     }
   }, [state, newHand, router, hydrated]);
+
+  // Resume mid-game state after a page refresh
+  useEffect(() => {
+    if (!hydrated) return;
+    const { state: s, isHumanTurn, processAITurns } = useGameStore.getState();
+    if (!s || s.handNumber === 0) return;
+
+    if (TRANSIENT_PHASES.has(s.phase)) {
+      // Can't resume a transient phase — restart the hand
+      newHand();
+      return;
+    }
+
+    if (s.phase !== Phase.Settle && !isHumanTurn()) {
+      // AI was playing — restart their turn loop after canvas initialises
+      setTimeout(() => processAITurns(), 600);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
 
   if (!hydrated || !state) return null;
 

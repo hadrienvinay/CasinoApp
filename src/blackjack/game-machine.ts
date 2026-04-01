@@ -79,10 +79,12 @@ export function checkBlackjacks(state: BJState): BJState {
   const dealerValue = calculateHandValue(dealerCards);
 
   if (playerValue.isBlackjack && dealerValue.isBlackjack) {
+    // Push — return original bet
     return {
       ...state,
       playerHands: [{ ...playerHand, result: BJResult.Push }],
       dealerHoleRevealed: true,
+      chips: state.chips + playerHand.bet,
       phase: BJPhase.Settle,
       roundNumber: state.roundNumber + 1,
       message: 'Push - both Blackjack!',
@@ -90,10 +92,13 @@ export function checkBlackjacks(state: BJState): BJState {
   }
 
   if (playerValue.isBlackjack) {
+    // Blackjack pays 3:2
+    const winnings = playerHand.bet + Math.floor(playerHand.bet * 1.5);
     return {
       ...state,
       playerHands: [{ ...playerHand, result: BJResult.PlayerBlackjack }],
       dealerHoleRevealed: true,
+      chips: state.chips + winnings,
       phase: BJPhase.Settle,
       roundNumber: state.roundNumber + 1,
       message: 'Blackjack!',
@@ -101,6 +106,7 @@ export function checkBlackjacks(state: BJState): BJState {
   }
 
   if (dealerValue.isBlackjack) {
+    // Dealer blackjack — player loses (bet already deducted)
     return {
       ...state,
       playerHands: [{ ...playerHand, result: BJResult.DealerWin }],

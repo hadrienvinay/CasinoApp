@@ -1,18 +1,48 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { useGameStore } from '@/store/game-store';
 import { Phase } from '@/engine/types';
+import { playDefeat, playCon } from '@/lib/sounds';
 
 export default function WinnerBanner() {
   const state = useGameStore((s) => s.state);
   const newHand = useGameStore((s) => s.newHand);
+  const playedRef = useRef(false);
+
+  const humanPlayer = state?.players.find((p) => p.isHuman);
+  const humanBusted = !humanPlayer || humanPlayer.chips <= 0;
+  const activePlayers = state?.players.filter((p) => p.chips > 0) ?? [];
+  const gameOver = humanBusted || activePlayers.length <= 1;
+
+  // Play sounds once per Settle phase
+  useEffect(() => {
+    if (!state || state.phase !== Phase.Settle) {
+      playedRef.current = false;
+      return;
+    }
+    if (playedRef.current) return;
+    playedRef.current = true;
+
+    if (humanBusted) {
+      // Human is eliminated
+      playDefeat();
+    } else {
+      // Check if human won an all-in that knocked out an opponent
+      const humanWon = state.winners.some((w) => {
+        const p = state.players.find((pl) => pl.id === w.playerId);
+        return p?.isHuman;
+      });
+      const opponentEliminated = state.players.some(
+        (p) => !p.isHuman && p.chips <= 0,
+      );
+      if (humanWon && opponentEliminated) {
+        playCon();
+      }
+    }
+  }, [state, humanBusted]);
 
   if (!state || state.phase !== Phase.Settle) return null;
-
-  const humanPlayer = state.players.find((p) => p.isHuman);
-  const humanBusted = !humanPlayer || humanPlayer.chips <= 0;
-  const activePlayers = state.players.filter((p) => p.chips > 0);
-  const gameOver = humanBusted || activePlayers.length <= 1;
 
   return (
     <div className="fixed bottom-3 right-2 sm:bottom-8 sm:right-4 flex flex-col gap-2 sm:gap-3 pointer-events-auto z-20">

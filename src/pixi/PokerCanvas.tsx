@@ -76,7 +76,7 @@ export default function PokerCanvas({ externalState, localPlayerId, onSetAnimati
       currentState: GameState,
     ): Promise<boolean> => {
       const app = appRef.current;
-      if (!app) return false;
+      if (!app || !app.renderer) return false;
 
       // Only animate on actual phase transitions
       if (newPhase === prevPhase) return false;
@@ -101,6 +101,7 @@ export default function PokerCanvas({ externalState, localPlayerId, onSetAnimati
               currentState.players,
               seats,
               DECK_POSITION,
+              localPlayerId,
             );
           } finally {
             animatingRef.current = false;
@@ -231,12 +232,12 @@ export default function PokerCanvas({ externalState, localPlayerId, onSetAnimati
 
       return animated;
     },
-    [setAnimatingFn],
+    [setAnimatingFn, localPlayerId],
   );
 
   const renderGame = useCallback(() => {
     const app = appRef.current;
-    if (!app || !state) return;
+    if (!app || !app.renderer || !state) return;
 
     // Don't destroy the scene while an animation is still running —
     // animations hold refs to children and PixiJS nulls _position on destroy.
@@ -260,7 +261,7 @@ export default function PokerCanvas({ externalState, localPlayerId, onSetAnimati
     const isDealAnim = (state.phase === Phase.Deal || state.phase === Phase.PreFlop)
       && (prevP === Phase.Blinds || prevP === Phase.Idle || prevP === Phase.Settle);
     state.players.forEach((player, i) => {
-      drawPlayer(app, gc, player, seats[i], state.phase, i === state.activePlayerIndex, state.config.bigBlind, isDealAnim, localPlayerId, showOpponentHands, showStackInBlinds);
+      drawPlayer(app, gc, player, seats[i], state.phase, i === state.activePlayerIndex, state.config.bigBlind, isDealAnim, localPlayerId, showOpponentHands || !!state.allInRunout, showStackInBlinds);
     });
 
     // Draw community cards — skip cards that are about to be animated
@@ -314,7 +315,7 @@ export default function PokerCanvas({ externalState, localPlayerId, onSetAnimati
     // Store current players (with bets) for next phase transition animation
     prevPlayersRef.current = JSON.parse(JSON.stringify(state.players));
     prevPhaseRef.current = newPhase;
-  }, [state, playPhaseAnimations, localPlayerId, showOpponentHands, showStackInBlinds]);
+  }, [state, playPhaseAnimations, setAnimatingFn, localPlayerId, showOpponentHands, showStackInBlinds]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -349,9 +350,13 @@ export default function PokerCanvas({ externalState, localPlayerId, onSetAnimati
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Re-run renderGame when state changes OR when animation finishes.
+  // _isAnimating is needed so that a state update that arrived mid-animation
+  // gets rendered once the animation completes (otherwise the useEffect doesn't
+  // re-fire because renderGame ref hasn't changed).
   useEffect(() => {
     renderGame();
-  }, [renderGame]);
+  }, [renderGame, _isAnimating]);
 
   return (
     <div
