@@ -27,6 +27,7 @@ export default function MultiplayerRoomPage() {
   const isConnected = useMultiplayerStore((s) => s.isConnected);
   const joinRoom = useMultiplayerStore((s) => s.joinRoom);
   const leaveRoom = useMultiplayerStore((s) => s.leaveRoom);
+  const changeBlinds = useMultiplayerStore((s) => s.changeBlinds);
 
   const [scale, setScale] = useState(1);
   const [hasJoined, setHasJoined] = useState(false);
@@ -132,6 +133,8 @@ export default function MultiplayerRoomPage() {
     return <MultiplayerLobby />;
   }
 
+  const isHost = roomInfo?.players.find((p) => p.id === mySocketId)?.isHost ?? false;
+
   // Game phase
   if (!gameState) {
     return (
@@ -181,6 +184,30 @@ export default function MultiplayerRoomPage() {
           <div>
             <div className="text-[9px] sm:text-[10px] text-gray-400 uppercase tracking-wider">Pot</div>
             <div className="text-sm sm:text-base font-bold text-green-400">${gameState.pot}</div>
+          </div>
+          <div>
+            <div className="text-[9px] sm:text-[10px] text-gray-400 uppercase tracking-wider">Blinds</div>
+            <div className="flex items-center gap-1.5">
+              {isHost && (
+                <button
+                  onClick={() => changeBlinds('down')}
+                  className="w-5 h-5 sm:w-6 sm:h-6 bg-gray-700 hover:bg-gray-600 active:bg-gray-500 text-white rounded text-xs font-bold flex items-center justify-center"
+                >
+                  ÷
+                </button>
+              )}
+              <span className="text-xs sm:text-sm font-bold text-white">
+                {gameState.config.smallBlind}/{gameState.config.bigBlind}
+              </span>
+              {isHost && (
+                <button
+                  onClick={() => changeBlinds('up')}
+                  className="w-5 h-5 sm:w-6 sm:h-6 bg-gray-700 hover:bg-gray-600 active:bg-gray-500 text-white rounded text-xs font-bold flex items-center justify-center"
+                >
+                  ×
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

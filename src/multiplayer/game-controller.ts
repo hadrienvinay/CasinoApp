@@ -242,16 +242,25 @@ export class GameController {
     clone.deck = [];
 
     // Filter hole cards — reveal during showdown, settle, or all-in runout
+    // But NOT when everyone folded (only 1 non-folded player)
+    const nonFoldedCount = clone.players.filter((p) => !p.isFolded).length;
+    const everyoneFolded = nonFoldedCount <= 1;
     const isReveal =
-      clone.phase === Phase.Showdown ||
-      clone.phase === Phase.Settle ||
-      !!clone.allInRunout;
+      !everyoneFolded &&
+      (clone.phase === Phase.Showdown ||
+       clone.phase === Phase.Settle ||
+       !!clone.allInRunout);
 
     for (const player of clone.players) {
       if (player.id !== socketId && !isReveal) {
-        // Send dummy cards (so client shows card backs)
         if (player.holeCards && !player.isFolded) {
-          player.holeCards = player.holeCards.map(() => ({ ...DUMMY_CARD }));
+          if (everyoneFolded) {
+            // Winner's cards stay hidden — don't even send dummies
+            player.holeCards = null;
+          } else {
+            // Send dummy cards (so client shows card backs)
+            player.holeCards = player.holeCards.map(() => ({ ...DUMMY_CARD }));
+          }
         }
       }
     }
@@ -270,6 +279,18 @@ export class GameController {
     }
 
     return { state: clone, availableActions, isYourTurn };
+  }
+
+  changeBlinds(direction: 'up' | 'down'): void {
+    if (direction === 'up') {
+      this.state.config.smallBlind *= 2;
+      this.state.config.bigBlind *= 2;
+    } else {
+      this.state.config.smallBlind = Math.max(1, Math.floor(this.state.config.smallBlind / 2));
+      this.state.config.bigBlind = Math.max(2, Math.floor(this.state.config.bigBlind / 2));
+    }
+    this.state.minRaise = this.state.config.bigBlind;
+    this.broadcastState();
   }
 
   handleRebuy(socketId: string): void {

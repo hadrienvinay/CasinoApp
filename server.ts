@@ -118,6 +118,19 @@ app.prepare().then(() => {
       room.gameController.handleRebuy(socket.id);
     });
 
+    // --- Change Blinds ---
+    socket.on('change-blinds', (data: { direction: 'up' | 'down' }) => {
+      const room = getRoomBySocketId(socket.id);
+      if (!room?.gameController) return socket.emit('error', { message: 'No active game' });
+      if (room.hostId !== socket.id) return socket.emit('error', { message: 'Only host can change blinds' });
+
+      room.gameController.changeBlinds(data.direction);
+      // Update room config too so it persists across hands
+      const state = room.gameController.getState();
+      room.config.smallBlind = state.config.smallBlind;
+      room.config.bigBlind = state.config.bigBlind;
+    });
+
     // --- New Hand ---
     socket.on('new-hand', () => {
       const room = getRoomBySocketId(socket.id);

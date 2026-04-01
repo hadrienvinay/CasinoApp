@@ -185,7 +185,7 @@ export default function ActionBar() {
             onClick={() => handleAction({ type: ActionType.Raise, amount: raiseAmount || minRaise })}
             className="shrink-0 px-3 py-2 bg-yellow-600 active:bg-yellow-800 hover:bg-yellow-700 text-white rounded-lg font-bold text-sm transition-colors min-h-[40px]"
           >
-            Raise ${raiseAmount || minRaise}
+            {state.currentBet === 0 ? 'Bet' : 'Raise'} ${raiseAmount || minRaise}
           </button>
         </>
       )}

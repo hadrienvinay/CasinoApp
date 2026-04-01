@@ -29,6 +29,7 @@ interface MultiplayerStore {
   submitAction: (action: PlayerAction) => void;
   nextHand: () => void;
   rebuy: () => void;
+  changeBlinds: (direction: 'up' | 'down') => void;
 
   // Internal
   _setConnected: (connected: boolean, socketId: string | null) => void;
@@ -87,6 +88,11 @@ export const useMultiplayerStore = create<MultiplayerStore>()((set) => ({
   rebuy: () => {
     const socket = getSocket();
     socket.emit('rebuy', {});
+  },
+
+  changeBlinds: (direction: 'up' | 'down') => {
+    const socket = getSocket();
+    socket.emit('change-blinds', { direction });
   },
 
   _setConnected: (connected, socketId) => set({ isConnected: connected, mySocketId: socketId }),

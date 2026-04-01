@@ -148,7 +148,7 @@ export function playCallAllIn() {
 
 /** Game start — multiplayer */
 export function playGameStart() {
-  playMp3('/assets/ui/piquer-pognon.mp3', 0.8);
+  playMp3('/assets/ui/hawai.mp3', 0.8);
 }
 
 /** Defeat — player eliminated */

@@ -31,6 +31,7 @@ export interface ClientMessages {
   'player-action': { action: PlayerAction };
   'new-hand': Record<string, never>;
   rebuy: Record<string, never>;
+  'change-blinds': { direction: 'up' | 'down' };
 }
 
 // Server -> Client messages

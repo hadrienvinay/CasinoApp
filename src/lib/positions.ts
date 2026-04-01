@@ -11,14 +11,17 @@ const TABLE_CENTER_Y = 340;
 const RADIUS_X = 470;
 const RADIUS_Y = 250;
 
-export function getSeatPositions(playerCount: number): SeatPosition[] {
+/**
+ * @param playerCount Number of players
+ * @param localPlayerIndex Index of the local player to place at the bottom (default 0)
+ */
+export function getSeatPositions(playerCount: number, localPlayerIndex = 0): SeatPosition[] {
   const positions: SeatPosition[] = [];
 
-  // Human player always at the bottom center
-  // AI players distributed evenly around the top
   for (let i = 0; i < playerCount; i++) {
-    // Start from bottom (π/2) and go clockwise
-    const angle = (Math.PI / 2) + (2 * Math.PI * i) / playerCount;
+    // Offset so that localPlayerIndex sits at the bottom (angle π/2)
+    const slot = (i - localPlayerIndex + playerCount) % playerCount;
+    const angle = (Math.PI / 2) + (2 * Math.PI * slot) / playerCount;
     const x = TABLE_CENTER_X + RADIUS_X * Math.cos(angle);
     const y = TABLE_CENTER_Y + RADIUS_Y * Math.sin(angle);
 

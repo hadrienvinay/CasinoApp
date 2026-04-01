@@ -23,6 +23,7 @@ import {
 } from '@/lib/positions';
 import { Player, Card, Phase, GameState, ActionType } from '@/engine/types';
 import { evaluateHand } from '@/engine/hand-evaluator';
+import { cardToString } from '@/engine/deck';
 import { animateDeal } from '@/animations/deal';
 import { animateFlop, animateTurnOrRiver } from '@/animations/community';
 import { animateChipsToWinner, animateChipsToPot } from '@/animations/chips';
@@ -51,8 +52,16 @@ export default function PokerCanvas({ externalState, localPlayerId, onSetAnimati
 
   const storeState = useGameStore((s) => s.state);
   const state = externalState !== undefined ? externalState : storeState;
-  const showOpponentHands = useGameStore((s) => s.showOpponentHands);
+  const isMultiplayer = externalState !== undefined;
+  const storeShowOpponentHands = useGameStore((s) => s.showOpponentHands);
+  // Never allow showing opponent hands in multiplayer
+  const showOpponentHands = isMultiplayer ? false : storeShowOpponentHands;
   const showStackInBlinds = useGameStore((s) => s.showStackInBlinds);
+
+  // Index of the local player — used to rotate seats so they sit at the bottom
+  const localPlayerIndex = state && localPlayerId
+    ? state.players.findIndex((p) => p.id === localPlayerId)
+    : 0;
   // Subscribe so the component re-renders once animations finish.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _isAnimating = useGameStore((s) => s.isAnimating);
@@ -84,7 +93,7 @@ export default function PokerCanvas({ externalState, localPlayerId, onSetAnimati
       const gc = gameContainerRef.current;
       if (!gc) return false;
 
-      const seats = getSeatPositions(currentState.players.length);
+      const seats = getSeatPositions(currentState.players.length, localPlayerIndex);
       let animated = false;
 
       // --- Deal phase: cards fly from deck to players ---
@@ -125,7 +134,7 @@ export default function PokerCanvas({ externalState, localPlayerId, onSetAnimati
           // Animate bets collecting into pot (using previous state's bets)
           const prevPlayers = prevPlayersRef.current;
           if (prevPlayers) {
-            const prevSeats = getSeatPositions(prevPlayers.length);
+            const prevSeats = getSeatPositions(prevPlayers.length, localPlayerIndex);
             const potPosition = { x: POT_X, y: POT_Y };
             const hasBets = prevPlayers.some((p) => p.currentBet > 0);
             if (hasBets) {
@@ -163,7 +172,7 @@ export default function PokerCanvas({ externalState, localPlayerId, onSetAnimati
             // Collect last round's bets into pot
             const prevPlayers = prevPlayersRef.current;
             if (prevPlayers) {
-              const prevSeats = getSeatPositions(prevPlayers.length);
+              const prevSeats = getSeatPositions(prevPlayers.length, localPlayerIndex);
               const potPosition = { x: POT_X, y: POT_Y };
               const hasBets = prevPlayers.some((p) => p.currentBet > 0);
               if (hasBets) {
@@ -199,7 +208,7 @@ export default function PokerCanvas({ externalState, localPlayerId, onSetAnimati
             // Collect remaining bets (e.g. when everyone folds, skipping showdown)
             const prevPlayers = prevPlayersRef.current;
             if (prevPlayers && prevPhase !== Phase.Showdown) {
-              const prevSeats = getSeatPositions(prevPlayers.length);
+              const prevSeats = getSeatPositions(prevPlayers.length, localPlayerIndex);
               const potPos = { x: POT_X, y: POT_Y };
               const hasBets = prevPlayers.some((p) => p.currentBet > 0);
               if (hasBets) {
@@ -232,7 +241,7 @@ export default function PokerCanvas({ externalState, localPlayerId, onSetAnimati
 
       return animated;
     },
-    [setAnimatingFn, localPlayerId],
+    [setAnimatingFn, localPlayerId, localPlayerIndex],
   );
 
   const renderGame = useCallback(() => {
@@ -256,15 +265,26 @@ export default function PokerCanvas({ externalState, localPlayerId, onSetAnimati
     drawTable(gc);
 
     // Draw players — hide hole cards when deal animation is about to play
-    const seats = getSeatPositions(state.players.length);
+    const seats = getSeatPositions(state.players.length, localPlayerIndex);
     const prevP = prevPhaseRef.current;
     const isDealAnim = (state.phase === Phase.Deal || state.phase === Phase.PreFlop)
       && (prevP === Phase.Blinds || prevP === Phase.Idle || prevP === Phase.Settle);
+
+    // Compute winning 5-card combos at showdown/settle for highlight
+    const winningCardSets = getWinningCardSets(state);
+
     state.players.forEach((player, i) => {
-      drawPlayer(app, gc, player, seats[i], state.phase, i === state.activePlayerIndex, state.config.bigBlind, isDealAnim, localPlayerId, showOpponentHands || !!state.allInRunout, showStackInBlinds);
+      const highlight = winningCardSets.get(player.id) ?? null;
+      drawPlayer(app, gc, player, seats[i], state.phase, i === state.activePlayerIndex, state.config.bigBlind, isDealAnim, localPlayerId, showOpponentHands || !!state.allInRunout, showStackInBlinds, highlight);
     });
 
     // Draw community cards — skip cards that are about to be animated
+    // Merge all winning card keys for community card highlight
+    const allWinningKeys = new Set<string>();
+    for (const keys of winningCardSets.values()) {
+      for (const k of keys) allWinningKeys.add(k);
+    }
+
     if (state.communityCards.length > 0) {
       const prevPhase = prevPhaseRef.current;
       const isNewFlop = (state.phase === Phase.Flop) && (prevPhase !== Phase.Flop);
@@ -277,7 +297,7 @@ export default function PokerCanvas({ externalState, localPlayerId, onSetAnimati
       else if (isNewRiver) visibleCount = 4;  // show flop+turn, river animates
 
       if (visibleCount > 0) {
-        drawCommunityCards(app, gc, state.communityCards.slice(0, visibleCount));
+        drawCommunityCards(app, gc, state.communityCards.slice(0, visibleCount), allWinningKeys);
       }
     }
 
@@ -315,7 +335,7 @@ export default function PokerCanvas({ externalState, localPlayerId, onSetAnimati
     // Store current players (with bets) for next phase transition animation
     prevPlayersRef.current = JSON.parse(JSON.stringify(state.players));
     prevPhaseRef.current = newPhase;
-  }, [state, playPhaseAnimations, setAnimatingFn, localPlayerId, showOpponentHands, showStackInBlinds]);
+  }, [state, playPhaseAnimations, setAnimatingFn, localPlayerId, showOpponentHands, showStackInBlinds, localPlayerIndex]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -367,6 +387,30 @@ export default function PokerCanvas({ externalState, localPlayerId, onSetAnimati
   );
 }
 
+// --- Winning card computation ---
+
+/**
+ * At Showdown/Settle, compute the 5-card winning combo for each winner.
+ * Returns a map of playerId → Set of card keys (e.g. "Ah", "Ks").
+ */
+function getWinningCardSets(state: GameState): Map<string, Set<string>> {
+  const result = new Map<string, Set<string>>();
+  if (state.phase !== Phase.Showdown && state.phase !== Phase.Settle) return result;
+  if (state.winners.length === 0 || state.communityCards.length < 3) return result;
+
+  for (const winner of state.winners) {
+    const player = state.players.find((p) => p.id === winner.playerId);
+    if (!player?.holeCards || player.isFolded) continue;
+    if (winner.handName === 'Everyone folded') continue;
+
+    const handResult = evaluateHand(player.holeCards, state.communityCards);
+    // handResult.cards contains pokersolver format strings like "Ah"
+    result.set(player.id, new Set(handResult.cards));
+  }
+
+  return result;
+}
+
 // --- Drawing helpers ---
 
 function drawTable(container: Container) {
@@ -392,6 +436,7 @@ function drawPlayer(
   localPlayerId?: string,
   showOpponentHands = false,
   showStackInBlinds = false,
+  highlightCards: Set<string> | null = null,
 ) {
   const pc = new Container();
   pc.x = seat.x;
@@ -469,8 +514,9 @@ function drawPlayer(
   // Hole cards — skip during Deal phase or when deal animation is about to play
   if (player.holeCards && !player.isFolded && phase !== Phase.Idle && phase !== Phase.Deal && !hideCards) {
     const isLocal = localPlayerId ? player.id === localPlayerId : player.isHuman;
-    const showCards = isLocal || showOpponentHands || phase === Phase.Showdown || phase === Phase.Settle;
-    drawHoleCards(app, pc, player.holeCards, showCards);
+    const isRevealPhase = phase === Phase.Showdown || phase === Phase.Settle;
+    const showCards = isLocal || showOpponentHands || isRevealPhase;
+    drawHoleCards(app, pc, player.holeCards, showCards, highlightCards);
   }
 
   // Last action label (Check, Call, Raise, etc.) — shown toward table center
@@ -518,6 +564,7 @@ function drawHoleCards(
   container: Container,
   cards: Card[],
   faceUp: boolean,
+  highlightCards: Set<string> | null = null,
 ) {
   const count = cards.length;
   // Adjust card size and spacing based on card count
@@ -538,6 +585,18 @@ function drawHoleCards(
 
   cards.forEach((card, i) => {
     const texture = faceUp ? getCardTexture(app, card) : getCardBackTexture(app);
+    const cardKey = cardToString(card);
+    const isHighlighted = highlightCards?.has(cardKey) ?? false;
+
+    // Glow behind highlighted cards
+    if (isHighlighted && faceUp) {
+      const glow = new Graphics();
+      glow.roundRect(-cardW / 2 - 3, -cardH / 2 - 3, cardW + 6, cardH + 6, 8);
+      glow.fill({ color: 0xf1c40f, alpha: 0.5 });
+      glow.x = startX + i * spacing;
+      container.addChild(glow);
+    }
+
     const sprite = new Sprite(texture);
     sprite.anchor.set(0.5);
     sprite.x = startX + i * spacing;
@@ -547,7 +606,7 @@ function drawHoleCards(
   });
 }
 
-function drawCommunityCards(app: Application, container: Container, cards: Card[]) {
+function drawCommunityCards(app: Application, container: Container, cards: Card[], highlightCards?: Set<string>) {
   cards.forEach((card, i) => {
     const texture = getCardTexture(app, card);
     const sprite = new Sprite(texture);
