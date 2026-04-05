@@ -109,7 +109,9 @@ export function playChipsWin() {
 
 /** Check — gentle double tap */
 export function playCheck() {
-  const ctx = getCtx();
+  playMp3('/assets/cards/check2.mp3', 0.7);
+
+  /*const ctx = getCtx();
   const now = ctx.currentTime;
 
   for (let i = 0; i < 2; i++) {
@@ -128,8 +130,8 @@ export function playCheck() {
     g.connect(ctx.destination);
     osc.start(t);
     osc.stop(t + 0.08);
+    */
   }
-}
 
 /** Fold — uses fold.mp3 */
 export function playFold() {

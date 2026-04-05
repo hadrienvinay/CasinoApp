@@ -394,6 +394,16 @@ function advanceNonCommunityPhase(
 
   s.phase = nextPhase;
 
+  // Check if all remaining players are all-in — skip draw phases and go to showdown
+  const canAct = s.players.filter((p) => !p.isFolded && !p.isAllIn);
+  if (canAct.length <= 1) {
+    // For draw phases when everyone is all-in, skip straight to showdown
+    if (nextPhase === Phase.Draw1 || nextPhase === Phase.Draw2 || nextPhase === Phase.Draw3) {
+      return resolveShowdown(s);
+    }
+    return resolveShowdown(s);
+  }
+
   // If next phase is a draw phase, set up for drawing
   if (nextPhase === Phase.Draw1 || nextPhase === Phase.Draw2 || nextPhase === Phase.Draw3) {
     s.drawRound++;
@@ -404,12 +414,6 @@ function advanceNonCommunityPhase(
     const startIdx = (s.dealerIndex + 1) % s.players.length;
     s.activePlayerIndex = findNextActive(s, startIdx);
     return s;
-  }
-
-  // Check if all remaining players are all-in
-  const canAct = s.players.filter((p) => !p.isFolded && !p.isAllIn);
-  if (canAct.length <= 1) {
-    return resolveShowdown(s);
   }
 
   // First active player after dealer

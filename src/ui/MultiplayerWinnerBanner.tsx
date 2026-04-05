@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMultiplayerStore } from '@/store/multiplayer-store';
 import { Phase } from '@/engine/types';
@@ -9,13 +10,26 @@ export default function MultiplayerWinnerBanner() {
   const gameState = useMultiplayerStore((s) => s.gameState);
   const mySocketId = useMultiplayerStore((s) => s.mySocketId);
   const roomInfo = useMultiplayerStore((s) => s.roomInfo);
-  const nextHand = useMultiplayerStore((s) => s.nextHand);
   const rebuy = useMultiplayerStore((s) => s.rebuy);
   const leaveRoom = useMultiplayerStore((s) => s.leaveRoom);
 
-  if (!gameState || gameState.phase !== Phase.Settle) return null;
+  const isSettle = gameState?.phase === Phase.Settle;
 
-  const isHost = roomInfo?.players.find((p) => p.id === mySocketId)?.isHost ?? false;
+  // Countdown timer for next hand
+  const [countdown, setCountdown] = useState(4);
+  useEffect(() => {
+    if (!isSettle) {
+      setCountdown(4);
+      return;
+    }
+    const interval = setInterval(() => {
+      setCountdown((c) => Math.max(0, c - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isSettle]);
+
+  if (!gameState || !isSettle) return null;
+
   const myPlayer = gameState.players.find((p) => p.id === mySocketId);
   const isBusted = myPlayer !== undefined && myPlayer.chips <= 0;
   const startingChips = roomInfo?.config.startingChips ?? 0;
@@ -67,18 +81,9 @@ export default function MultiplayerWinnerBanner() {
         );
       })}
 
-      {isHost ? (
-        <button
-          onClick={nextHand}
-          className="mt-2 sm:mt-3 w-full py-2.5 bg-green-600 active:bg-green-800 hover:bg-green-700 text-white rounded-lg font-bold text-sm sm:text-base transition-colors min-h-[44px]"
-        >
-          Next Hand
-        </button>
-      ) : (
-        <p className="mt-2 sm:mt-3 text-gray-400 text-xs sm:text-sm text-center">
-          Waiting for host...
-        </p>
-      )}
+      <p className="mt-2 text-gray-500 text-xs text-center">
+        Prochaine main dans {countdown}s...
+      </p>
     </div>
   );
 }

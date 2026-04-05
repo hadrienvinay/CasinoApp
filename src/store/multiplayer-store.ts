@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { GameState, PlayerAction } from '@/engine/types';
+import { GameState, PlayerAction, ActionType } from '@/engine/types';
+import { playCheck, playFold, playAllIn, playChipBet, playRaise } from '@/lib/sounds';
 import { RoomInfo, RoomConfig } from '@/multiplayer/types';
 import { getSocket, connectSocket } from '@/lib/socket';
 import type { Socket } from 'socket.io-client';
@@ -18,11 +19,15 @@ interface MultiplayerStore {
   isMyTurn: boolean;
   turnTimer: { playerId: string; remainingMs: number } | null;
 
+  // Display
+  showStackInBlinds: boolean;
+
   // Error
   error: string | null;
 
   // Actions (emit to server)
   createRoom: (playerName: string, config: RoomConfig) => void;
+  toggleShowStackInBlinds: () => void;
   joinRoom: (roomId: string, playerName: string) => void;
   leaveRoom: () => void;
   startGame: () => void;
@@ -38,6 +43,7 @@ interface MultiplayerStore {
     state: GameState;
     availableActions: PlayerAction[];
     isYourTurn: boolean;
+    lastAction: { playerId: string; type: string; amount: number } | null;
   }) => void;
   _setTurnTimer: (timer: { playerId: string; remainingMs: number }) => void;
   _setError: (msg: string) => void;
@@ -52,6 +58,7 @@ export const useMultiplayerStore = create<MultiplayerStore>()((set) => ({
   availableActions: [],
   isMyTurn: false,
   turnTimer: null,
+  showStackInBlinds: false,
   error: null,
 
   createRoom: (playerName: string, config: RoomConfig) => {
@@ -95,15 +102,35 @@ export const useMultiplayerStore = create<MultiplayerStore>()((set) => ({
     socket.emit('change-blinds', { direction });
   },
 
+  toggleShowStackInBlinds: () => set((s) => ({ showStackInBlinds: !s.showStackInBlinds })),
+
   _setConnected: (connected, socketId) => set({ isConnected: connected, mySocketId: socketId }),
   _setRoomInfo: (info) => set({ roomInfo: info }),
-  _setGameState: (data) =>
+  _setGameState: (data) => {
+    // Play sound for the last action — once per unique action
+    const act = data.lastAction;
+    if (act) {
+      const actionKey = `${act.playerId}:${act.type}:${act.amount}`;
+      if (actionKey !== lastPlayedActionKey) {
+        lastPlayedActionKey = actionKey;
+        switch (act.type) {
+          case ActionType.Check: playCheck(); break;
+          case ActionType.Fold: playFold(); break;
+          case ActionType.Call: playChipBet(); break;
+          case ActionType.Raise: playRaise(); break;
+          case ActionType.AllIn: playAllIn(); break;
+        }
+      }
+    } else {
+      lastPlayedActionKey = '';
+    }
     set({
       gameState: data.state,
       availableActions: data.availableActions,
       isMyTurn: data.isYourTurn,
       turnTimer: null,
-    }),
+    });
+  },
   _setTurnTimer: (timer) => set({ turnTimer: timer }),
   _setError: (msg) => set({ error: msg }),
   _reset: () =>
@@ -116,6 +143,9 @@ export const useMultiplayerStore = create<MultiplayerStore>()((set) => ({
       error: null,
     }),
 }));
+
+// Track last played action to avoid duplicate sounds on repeated broadcasts
+let lastPlayedActionKey = '';
 
 let listenersInitialized = false;
 
@@ -157,6 +187,7 @@ export function initMultiplayerListeners(socket: Socket): void {
       state: GameState;
       availableActions: PlayerAction[];
       isYourTurn: boolean;
+      lastAction: { playerId: string; type: string; amount: number } | null;
     }) => {
       useMultiplayerStore.getState()._setGameState(data);
     },

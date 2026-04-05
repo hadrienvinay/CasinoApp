@@ -52,7 +52,7 @@ export class MediumStrategy implements AIStrategy {
 
     // --- Medium stack (15-30 BB) ---
     if (stackBB <= 30) {
-      return this.mediumStackPreflop(tier, actions, facingRaise, facingBigRaise);
+      return this.mediumStackPreflop(tier, actions, facingRaise, facingBigRaise, gameState);
     }
 
     // --- Deep stack (> 30 BB) ---
@@ -170,18 +170,19 @@ export class MediumStrategy implements AIStrategy {
     actions: ActionSet,
     facingRaise: boolean,
     facingBigRaise: boolean,
+    gameState: GameState,
   ): PlayerAction {
     switch (tier) {
       case 'premium':
         // All-in vs 3-bet
         if (facingBigRaise && actions.allIn) return actions.allIn;
-        return this.sizeRaise(actions, null, 'large');
+        return this.sizeRaise(actions, gameState, 'large');
       case 'strong':
         if (facingBigRaise) {
           if (actions.call) return actions.call;
           return actions.fold!;
         }
-        if (actions.raise) return this.sizeRaise(actions, null, 'medium');
+        if (actions.raise) return this.sizeRaise(actions, gameState, 'medium');
         if (actions.call) return actions.call;
         return actions.check!;
       case 'playable':

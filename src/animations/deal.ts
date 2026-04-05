@@ -8,7 +8,8 @@ import { playCardDeal, playCardFlip } from '@/lib/sounds';
 
 /**
  * Animate dealing cards from the deck to each player's seat.
- * Cards fly in an arc with rotation and scale, then human cards flip face-up.
+ * Cards fly in an arc with rotation and scale, then local player's cards flip face-up.
+ * Supports any number of hole cards (2 for Hold'em, 4 for Omaha, 5 for draw/razz).
  */
 export async function animateDeal(
   app: Application,
@@ -18,14 +19,23 @@ export async function animateDeal(
   deckPosition: { x: number; y: number },
   localPlayerId?: string,
 ): Promise<void> {
-  // Collect sprites per player so we can flip the right cards later
   const localSprites: { sprite: Sprite; cardRound: number }[] = [];
   const localPlayer = players.find((p) =>
     localPlayerId ? p.id === localPlayerId : p.isHuman,
   );
 
-  // Deal 2 rounds: first card to each player, then second card
-  for (let round = 0; round < 2; round++) {
+  // Determine how many cards to deal based on the first non-folded player's hole cards
+  const samplePlayer = players.find((p) => !p.isFolded && p.holeCards);
+  const cardCount = samplePlayer?.holeCards?.length ?? 2;
+
+  // Adjust card sizes for many cards
+  let cardW = CARD_WIDTH;
+  if (cardCount === 4) cardW = CARD_WIDTH * 0.85;
+  else if (cardCount >= 5) cardW = CARD_WIDTH * 0.75;
+  const cardH = cardW * (CARD_HEIGHT / CARD_WIDTH);
+  const spacing = cardW * 0.7;
+
+  for (let round = 0; round < cardCount; round++) {
     for (let i = 0; i < players.length; i++) {
       const player = players[i];
       if (player.isFolded) continue;
@@ -36,34 +46,32 @@ export async function animateDeal(
       sprite.anchor.set(0.5);
       sprite.x = deckPosition.x;
       sprite.y = deckPosition.y;
-      sprite.width = CARD_WIDTH * 0.3;
-      sprite.height = CARD_HEIGHT * 0.3;
+      sprite.width = cardW * 0.3;
+      sprite.height = cardH * 0.3;
       sprite.alpha = 0;
       sprite.rotation = 0;
       container.addChild(sprite);
 
-      // Target position: offset for first/second card
-      const cardOffset = (round - 0.5) * (CARD_WIDTH * 0.7);
+      // Position: center the group of cards around the seat
+      const totalWidth = (cardCount - 1) * spacing;
+      const cardOffset = round * spacing - totalWidth / 2;
       const targetX = seat.x + cardOffset;
       const targetY = seat.y;
 
-      // Slight random rotation for natural feel
       const targetRotation = (Math.random() - 0.5) * 0.08;
 
-      // Fly to seat with scale and rotation
       sprite.alpha = 1;
       playCardDeal();
       await tweenTo(sprite, {
         x: targetX,
         y: targetY,
-        width: CARD_WIDTH,
-        height: CARD_HEIGHT,
+        width: cardW,
+        height: cardH,
         rotation: targetRotation,
         duration: 0.18,
         ease: 'power2.out',
       });
 
-      // Track only the local player's card sprites
       if (player === localPlayer && player.holeCards) {
         localSprites.push({ sprite, cardRound: round });
       }

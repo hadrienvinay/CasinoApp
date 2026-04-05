@@ -28,6 +28,8 @@ export default function MultiplayerRoomPage() {
   const joinRoom = useMultiplayerStore((s) => s.joinRoom);
   const leaveRoom = useMultiplayerStore((s) => s.leaveRoom);
   const changeBlinds = useMultiplayerStore((s) => s.changeBlinds);
+  const showStackInBlinds = useMultiplayerStore((s) => s.showStackInBlinds);
+  const toggleShowStackInBlinds = useMultiplayerStore((s) => s.toggleShowStackInBlinds);
 
   const [scale, setScale] = useState(1);
   const [hasJoined, setHasJoined] = useState(false);
@@ -211,15 +213,28 @@ export default function MultiplayerRoomPage() {
           </div>
         </div>
 
-        <button
-          onClick={() => {
-            leaveRoom();
-            router.push('/');
-          }}
-          className="absolute top-2 right-2 sm:top-4 sm:right-4 px-3 py-2 sm:px-4 bg-gray-800/80 hover:bg-gray-700 text-white rounded-lg text-xs sm:text-sm font-medium transition-colors backdrop-blur-sm pointer-events-auto min-h-[36px]"
-        >
-          Leave
-        </button>
+        <div className="absolute top-2 right-2 sm:top-4 sm:right-4 flex gap-1.5 sm:gap-2 pointer-events-auto">
+          <button
+            onClick={toggleShowStackInBlinds}
+            className={`px-2.5 py-2 sm:px-3 rounded-lg text-xs font-medium transition-colors backdrop-blur-sm min-h-[36px] ${
+              showStackInBlinds
+                ? 'bg-blue-600/80 hover:bg-blue-500 text-white'
+                : 'bg-gray-800/80 hover:bg-gray-700 text-gray-300'
+            }`}
+            title="Afficher en BB / $"
+          >
+            {showStackInBlinds ? 'BB' : '$'}
+          </button>
+          <button
+            onClick={() => {
+              leaveRoom();
+              router.push('/');
+            }}
+            className="px-3 py-2 sm:px-4 bg-gray-800/80 hover:bg-gray-700 text-white rounded-lg text-xs sm:text-sm font-medium transition-colors backdrop-blur-sm min-h-[36px]"
+          >
+            Leave
+          </button>
+        </div>
       </div>
 
       <LandscapePrompt />

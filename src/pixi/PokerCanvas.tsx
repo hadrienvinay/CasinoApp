@@ -10,6 +10,7 @@ import {
   TextStyle,
 } from 'pixi.js';
 import { useGameStore } from '@/store/game-store';
+import { useMultiplayerStore } from '@/store/multiplayer-store';
 import { getCardTexture, getCardBackTexture, clearTextureCache } from '@/lib/card-textures';
 import {
   getSeatPositions,
@@ -21,9 +22,10 @@ import {
   DECK_POSITION,
   SeatPosition,
 } from '@/lib/positions';
-import { Player, Card, Phase, GameState, ActionType } from '@/engine/types';
-import { evaluateHand } from '@/engine/hand-evaluator';
+import { Player, Card, Phase, GameState, ActionType, PokerVariant } from '@/engine/types';
+import { evaluateHand, evaluateOmahaHand, evaluateRazzHand, evaluate27LowHand, evaluateFiveCardDrawHand } from '@/engine/hand-evaluator';
 import { cardToString } from '@/engine/deck';
+import { getVariantRules } from '@/engine/variant-rules';
 import { animateDeal } from '@/animations/deal';
 import { animateFlop, animateTurnOrRiver } from '@/animations/community';
 import { animateChipsToWinner, animateChipsToPot } from '@/animations/chips';
@@ -34,7 +36,7 @@ const CANVAS_HEIGHT = 720;
 const TABLE_CX = 640;
 const TABLE_CY = 340;
 const POT_X = 640;
-const POT_Y = 250;
+const POT_Y = 225;
 
 interface PokerCanvasProps {
   externalState?: GameState | null;
@@ -56,7 +58,9 @@ export default function PokerCanvas({ externalState, localPlayerId, onSetAnimati
   const storeShowOpponentHands = useGameStore((s) => s.showOpponentHands);
   // Never allow showing opponent hands in multiplayer
   const showOpponentHands = isMultiplayer ? false : storeShowOpponentHands;
-  const showStackInBlinds = useGameStore((s) => s.showStackInBlinds);
+  const storeShowStackInBlinds = useGameStore((s) => s.showStackInBlinds);
+  const mpShowStackInBlinds = useMultiplayerStore((s) => s.showStackInBlinds);
+  const showStackInBlinds = isMultiplayer ? mpShowStackInBlinds : storeShowStackInBlinds;
 
   // Index of the local player — used to rotate seats so they sit at the bottom
   const localPlayerIndex = state && localPlayerId
@@ -120,10 +124,13 @@ export default function PokerCanvas({ externalState, localPlayerId, onSetAnimati
       }
 
       // --- Collect bets into pot + deal community cards ---
+      const variant = currentState.config.variant ?? PokerVariant.TexasHoldem;
+      const rules = getVariantRules(variant);
       const isCommunityPhase =
-        (newPhase === Phase.Flop && prevPhase !== Phase.Flop) ||
+        rules.hasCommunityCards &&
+        ((newPhase === Phase.Flop && prevPhase !== Phase.Flop) ||
         (newPhase === Phase.Turn && prevPhase !== Phase.Turn) ||
-        (newPhase === Phase.River && prevPhase !== Phase.River);
+        (newPhase === Phase.River && prevPhase !== Phase.River));
 
       if (isCommunityPhase) {
         animatingRef.current = true;
@@ -285,7 +292,8 @@ export default function PokerCanvas({ externalState, localPlayerId, onSetAnimati
       for (const k of keys) allWinningKeys.add(k);
     }
 
-    if (state.communityCards.length > 0) {
+    const variantRules = getVariantRules(state.config.variant ?? PokerVariant.TexasHoldem);
+    if (variantRules.hasCommunityCards && state.communityCards.length > 0) {
       const prevPhase = prevPhaseRef.current;
       const isNewFlop = (state.phase === Phase.Flop) && (prevPhase !== Phase.Flop);
       const isNewTurn = (state.phase === Phase.Turn) && (prevPhase !== Phase.Turn);
@@ -396,15 +404,37 @@ export default function PokerCanvas({ externalState, localPlayerId, onSetAnimati
 function getWinningCardSets(state: GameState): Map<string, Set<string>> {
   const result = new Map<string, Set<string>>();
   if (state.phase !== Phase.Showdown && state.phase !== Phase.Settle) return result;
-  if (state.winners.length === 0 || state.communityCards.length < 3) return result;
+  if (state.winners.length === 0) return result;
+
+  const variant = state.config.variant ?? PokerVariant.TexasHoldem;
 
   for (const winner of state.winners) {
     const player = state.players.find((p) => p.id === winner.playerId);
     if (!player?.holeCards || player.isFolded) continue;
     if (winner.handName === 'Everyone folded') continue;
 
-    const handResult = evaluateHand(player.holeCards, state.communityCards);
-    // handResult.cards contains pokersolver format strings like "Ah"
+    let handResult;
+    switch (variant) {
+      case PokerVariant.Omaha:
+        if (state.communityCards.length < 3) continue;
+        handResult = evaluateOmahaHand(player.holeCards, state.communityCards);
+        break;
+      case PokerVariant.Razz:
+        handResult = evaluateRazzHand(player.holeCards);
+        break;
+      case PokerVariant.TripleDraw27:
+        handResult = evaluate27LowHand(player.holeCards);
+        break;
+      case PokerVariant.FiveCardDraw:
+        handResult = evaluateFiveCardDrawHand(player.holeCards);
+        break;
+      case PokerVariant.TexasHoldem:
+      default:
+        if (state.communityCards.length < 3) continue;
+        handResult = evaluateHand(player.holeCards, state.communityCards);
+        break;
+    }
+
     result.set(player.id, new Set(handResult.cards));
   }
 
@@ -415,11 +445,11 @@ function getWinningCardSets(state: GameState): Map<string, Set<string>> {
 
 function drawTable(container: Container) {
   const table = new Graphics();
-  table.ellipse(640, 340, 450, 230);
+  table.ellipse(640, 310, 420, 195);
   table.fill({ color: 0x5d3a1a });
-  table.ellipse(640, 340, 420, 200);
+  table.ellipse(640, 310, 390, 170);
   table.fill({ color: 0x27683e });
-  table.ellipse(640, 340, 380, 170);
+  table.ellipse(640, 310, 355, 145);
   table.stroke({ color: 0x2d7a48, width: 2 });
   container.addChild(table);
 }
@@ -731,10 +761,28 @@ function drawHandLabels(container: Container, state: GameState, seats: SeatPosit
     const winnerInfo = state.winners.find((w) => w.playerId === player.id);
     if (winnerInfo) {
       handName = winnerInfo.handName;
-    } else if (state.communityCards.length >= 3) {
-      // Evaluate hand for non-winner players still in
-      const result = evaluateHand(player.holeCards as Card[], state.communityCards);
-      handName = result.name;
+    } else {
+      // Evaluate hand for non-winner players still in (variant-aware)
+      const variant = state.config.variant ?? PokerVariant.TexasHoldem;
+      const hc = player.holeCards as Card[];
+      switch (variant) {
+        case PokerVariant.Omaha:
+          if (state.communityCards.length >= 3) handName = evaluateOmahaHand(hc, state.communityCards).name;
+          break;
+        case PokerVariant.Razz:
+          handName = evaluateRazzHand(hc).name;
+          break;
+        case PokerVariant.TripleDraw27:
+          handName = evaluate27LowHand(hc).name;
+          break;
+        case PokerVariant.FiveCardDraw:
+          handName = evaluateFiveCardDrawHand(hc).name;
+          break;
+        case PokerVariant.TexasHoldem:
+        default:
+          if (state.communityCards.length >= 3) handName = evaluateHand(hc, state.communityCards).name;
+          break;
+      }
     }
 
     if (!handName) return;

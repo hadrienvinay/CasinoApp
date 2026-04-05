@@ -73,15 +73,27 @@ export class HardStrategy implements AIStrategy {
   private getPositionType(
     gameState: GameState,
   ): 'early' | 'middle' | 'late' {
-    const count = gameState.players.filter((p) => !p.isFolded).length;
+    const activePlayers = gameState.players.filter((p) => !p.isFolded && p.chips > 0);
+    const count = activePlayers.length;
     const activeIdx = gameState.activePlayerIndex;
     const dealerIdx = gameState.dealerIndex;
     const totalPlayers = gameState.players.length;
 
     const posFromDealer = (activeIdx - dealerIdx + totalPlayers) % totalPlayers;
 
-    if (count <= 3) return 'late';
+    // Heads-up: dealer/SB is "late" (acts first pre-flop but last post-flop), BB is "early"
+    if (count <= 2) {
+      return posFromDealer === 0 ? 'late' : 'early';
+    }
 
+    // 3 players: dealer=late, SB=early, BB=middle
+    if (count === 3) {
+      if (posFromDealer === 0) return 'late';
+      if (posFromDealer === 1) return 'early';
+      return 'middle';
+    }
+
+    // 4+ players
     if (posFromDealer === 0 || posFromDealer === totalPlayers - 1) return 'late';
     if (posFromDealer <= 2) return 'early';
     return 'middle';
@@ -116,7 +128,7 @@ export class HardStrategy implements AIStrategy {
     // MEDIUM STACK (12-25 BB): Shove or fold 3-bet
     // ============================================
     if (stackBB <= 25) {
-      return this.mediumStackPreflop(holeCards, tier, pfStrength, stackBB, position, actions, facingRaise, facing3Bet, opponentAggro);
+      return this.mediumStackPreflop(holeCards, tier, pfStrength, stackBB, position, actions, facingRaise, facing3Bet, opponentAggro, gameState);
     }
 
     // ============================================
@@ -126,7 +138,7 @@ export class HardStrategy implements AIStrategy {
   }
 
   private pushFoldDecision(
-    holeCards: Card[],
+    _holeCards: Card[],
     tier: HandTier,
     pfStrength: number,
     stackBB: number,
@@ -182,6 +194,7 @@ export class HardStrategy implements AIStrategy {
     facingRaise: boolean,
     facing3Bet: boolean,
     opponentAggro: number,
+    gameState: GameState,
   ): PlayerAction {
     // Facing a 3-bet with medium stack
     if (facing3Bet) {
@@ -201,11 +214,11 @@ export class HardStrategy implements AIStrategy {
     if (facingRaise) {
       if (tier === 'premium') {
         // 3-bet (sizing will convert to all-in with medium stack)
-        return this.sizeRaise(actions, null, 'large');
+        return this.sizeRaise(actions, gameState, 'large');
       }
       if (tier === 'strong') {
         // 3-bet sometimes, flat other times
-        if (Math.random() < 0.4) return this.sizeRaise(actions, null, 'large');
+        if (Math.random() < 0.4) return this.sizeRaise(actions, gameState, 'large');
         if (actions.call) return actions.call;
         return actions.fold!;
       }
@@ -224,13 +237,13 @@ export class HardStrategy implements AIStrategy {
     }
 
     if (tier === 'premium' || tier === 'strong') {
-      if (actions.raise) return this.sizeRaise(actions, null, 'medium');
+      if (actions.raise) return this.sizeRaise(actions, gameState, 'medium');
       return actions.call ?? actions.check!;
     }
     if (tier === 'playable') {
       // Open raise from middle/late
       if (position !== 'early' && actions.raise && Math.random() < 0.6) {
-        return this.sizeRaise(actions, null, 'small');
+        return this.sizeRaise(actions, gameState, 'small');
       }
       if (actions.check) return actions.check;
       if (actions.call) return actions.call;
@@ -238,7 +251,7 @@ export class HardStrategy implements AIStrategy {
     }
     // Marginal: steal from late position
     if (position === 'late' && pfStrength >= 0.30 && actions.raise && Math.random() < 0.35) {
-      return this.sizeRaise(actions, null, 'small');
+      return this.sizeRaise(actions, gameState, 'small');
     }
     if (actions.check) return actions.check;
     return actions.fold!;
@@ -491,7 +504,7 @@ export class HardStrategy implements AIStrategy {
 
   private shouldBluff(
     gameState: GameState,
-    communityCards: Card[],
+    _communityCards: Card[],
     strength: number,
     position: 'early' | 'middle' | 'late',
     scaryBoard: boolean,
@@ -512,6 +525,11 @@ export class HardStrategy implements AIStrategy {
     // Bluff more vs tight/foldy opponents
     const foldBonus = opponentFolds > 0.5 ? 1.6 : 1.0;
 
+    // Stack depth adjustment: bluff less when short-stacked (higher commitment)
+    const player = gameState.players[gameState.activePlayerIndex];
+    const stackBB = getEffectiveStackBB(player.chips, gameState.config.bigBlind);
+    const stackMultiplier = stackBB < 15 ? 0.4 : stackBB < 25 ? 0.7 : 1.0;
+
     // Base bluff frequency by street
     const phase = gameState.phase;
     let bluffFreq: number;
@@ -529,7 +547,7 @@ export class HardStrategy implements AIStrategy {
     // Scary boards = more bluffs (represent the draw/made hand)
     if (scaryBoard) bluffFreq *= 1.5;
 
-    return Math.random() < bluffFreq * foldBonus;
+    return Math.random() < bluffFreq * foldBonus * stackMultiplier;
   }
 
   private isScaryBoard(communityCards: Card[]): boolean {

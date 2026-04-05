@@ -33,7 +33,9 @@ export class GameController {
   private turnInterval: ReturnType<typeof setInterval> | null = null;
   private turnStartedAt = 0;
   private settleTimeout: ReturnType<typeof setTimeout> | null = null;
+  private nextHandTimeout: ReturnType<typeof setTimeout> | null = null;
   private disconnectTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private lastAction: { playerId: string; type: ActionType; amount: number } | null = null;
 
   constructor(
     roomPlayers: RoomPlayer[],
@@ -89,16 +91,21 @@ export class GameController {
   }
 
   startGame(): void {
+    this.lastAction = null;
     this.state = startHand(this.state);
     this.broadcastState();
     this.startTurnTimer();
   }
 
   startNextHand(): void {
-    // Cancel any pending settle transition
+    // Cancel any pending timers
     if (this.settleTimeout) {
       clearTimeout(this.settleTimeout);
       this.settleTimeout = null;
+    }
+    if (this.nextHandTimeout) {
+      clearTimeout(this.nextHandTimeout);
+      this.nextHandTimeout = null;
     }
 
     // Don't start a new hand if fewer than 2 players have chips
@@ -109,6 +116,7 @@ export class GameController {
       return;
     }
 
+    this.lastAction = null;
     this.state = startHand(this.state);
     this.broadcastState();
     this.startTurnTimer();
@@ -142,6 +150,7 @@ export class GameController {
     }
 
     this.clearTurnTimer();
+    this.lastAction = { playerId: socketId, type: action.type as ActionType, amount: action.amount };
 
     const prevPhase = this.state.phase;
     this.state = advance(this.state, action);
@@ -176,7 +185,11 @@ export class GameController {
     }
 
     // Handle settle/showdown
-    if (this.state.phase === Phase.Settle || this.state.phase === Phase.Showdown) {
+    if (this.state.phase === Phase.Settle) {
+      this.scheduleNextHand();
+      return {};
+    }
+    if (this.state.phase === Phase.Showdown) {
       return {};
     }
 
@@ -235,6 +248,7 @@ export class GameController {
     state: GameState;
     availableActions: PlayerAction[];
     isYourTurn: boolean;
+    lastAction: { playerId: string; type: ActionType; amount: number } | null;
   } {
     const clone: GameState = JSON.parse(JSON.stringify(this.state));
 
@@ -278,7 +292,7 @@ export class GameController {
       availableActions = getAvailableActions(this.state, realPlayer);
     }
 
-    return { state: clone, availableActions, isYourTurn };
+    return { state: clone, availableActions, isYourTurn, lastAction: this.lastAction };
   }
 
   changeBlinds(direction: 'up' | 'down'): void {
@@ -312,7 +326,16 @@ export class GameController {
       settleState.phase = Phase.Settle;
       this.state = settleState;
       this.broadcastState();
+      this.scheduleNextHand();
     }, 3000);
+  }
+
+  private scheduleNextHand(): void {
+    if (this.nextHandTimeout) clearTimeout(this.nextHandTimeout);
+    this.nextHandTimeout = setTimeout(() => {
+      this.nextHandTimeout = null;
+      this.startNextHand();
+    }, 4000);
   }
 
   private startTurnTimer(): void {
@@ -397,6 +420,10 @@ export class GameController {
     if (this.settleTimeout) {
       clearTimeout(this.settleTimeout);
       this.settleTimeout = null;
+    }
+    if (this.nextHandTimeout) {
+      clearTimeout(this.nextHandTimeout);
+      this.nextHandTimeout = null;
     }
     for (const timer of this.disconnectTimers.values()) {
       clearTimeout(timer);

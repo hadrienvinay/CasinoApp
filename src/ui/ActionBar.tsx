@@ -117,10 +117,19 @@ export default function ActionBar() {
   const toCall = state.currentBet - player.currentBet;
   const minRaise = state.minRaise + state.currentBet - player.currentBet;
   const maxRaise = player.chips;
+  const effectiveRaise = raiseAmount || minRaise;
 
   const hasCheck = availableActions.some((a) => a.type === ActionType.Check);
   const hasCall = availableActions.some((a) => a.type === ActionType.Call);
   const hasRaise = availableActions.some((a) => a.type === ActionType.Raise);
+
+  // Pot-relative presets
+  const pot = state.pot + toCall;
+  const presets = [
+    { label: '¼', amount: Math.max(minRaise, Math.floor(pot * 0.25)) },
+    { label: '½', amount: Math.max(minRaise, Math.floor(pot * 0.5)) },
+    { label: 'Pot', amount: Math.max(minRaise, pot) },
+  ];
 
   const handleAction = (action: PlayerAction) => {
     submitAction(action);
@@ -128,78 +137,101 @@ export default function ActionBar() {
   };
 
   return (
-    <div className="fixed bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-gray-900/90 rounded-xl px-3 py-2.5 backdrop-blur-sm max-w-[98vw] overflow-x-auto">
-      {/* Fold */}
-      <button
-        onClick={() => handleAction({ type: ActionType.Fold, amount: 0 })}
-        className="shrink-0 px-3 py-2 bg-red-600 active:bg-red-800 hover:bg-red-700 text-white rounded-lg font-bold text-sm transition-colors min-h-[40px]"
-      >
-        Fold
-      </button>
+    <div className="fixed bottom-3 left-1/2 -translate-x-1/2 max-w-[98vw]">
+      <div className="flex flex-col items-center gap-1.5 bg-gray-900/90 rounded-xl px-3 py-2.5 sm:px-5 sm:py-3 backdrop-blur-sm">
 
-      {/* Check */}
-      {hasCheck && (
-        <button
-          onClick={() => handleAction({ type: ActionType.Check, amount: 0 })}
-          className="shrink-0 px-3 py-2 bg-green-600 active:bg-green-800 hover:bg-green-700 text-white rounded-lg font-bold text-sm transition-colors min-h-[40px]"
-        >
-          Check
-        </button>
-      )}
+        {/* Top row: pot presets + raise slider */}
+        {hasRaise && (
+          <div className="flex items-center gap-1.5 w-full justify-center">
+            {presets.map((p) => (
+              <button
+                key={p.label}
+                onClick={() => setRaiseAmount(Math.min(p.amount, maxRaise))}
+                className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors ${
+                  effectiveRaise === Math.min(p.amount, maxRaise)
+                    ? 'bg-yellow-600 text-white'
+                    : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+            <button
+              onClick={() => setRaiseAmount((prev) => Math.max(minRaise, (prev || minRaise) - state.config.bigBlind))}
+              className="shrink-0 w-8 h-8 bg-gray-700 active:bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-bold text-base transition-colors flex items-center justify-center"
+            >
+              -
+            </button>
+            <input
+              type="range"
+              min={minRaise}
+              max={maxRaise}
+              step={state.config.bigBlind}
+              value={effectiveRaise}
+              onChange={(e) => setRaiseAmount(Number(e.target.value))}
+              className="w-20 sm:w-28 accent-yellow-500 h-2 shrink-0 cursor-pointer"
+            />
+            <button
+              onClick={() => setRaiseAmount((prev) => Math.min(maxRaise, (prev || minRaise) + state.config.bigBlind))}
+              className="shrink-0 w-8 h-8 bg-gray-700 active:bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-bold text-base transition-colors flex items-center justify-center"
+            >
+              +
+            </button>
+          </div>
+        )}
 
-      {/* Call */}
-      {hasCall && (
-        <button
-          onClick={() => handleAction({ type: ActionType.Call, amount: toCall })}
-          className="shrink-0 px-3 py-2 bg-blue-600 active:bg-blue-800 hover:bg-blue-700 text-white rounded-lg font-bold text-sm transition-colors min-h-[40px]"
-        >
-          Call ${toCall}
-        </button>
-      )}
-
-      {/* Raise */}
-      {hasRaise && (
-        <>
+        {/* Bottom row: action buttons */}
+        <div className="flex items-center gap-1.5">
+          {/* Fold */}
           <button
-            onClick={() => setRaiseAmount((prev) => Math.max(minRaise, (prev || minRaise) - state.config.bigBlind))}
-            className="shrink-0 w-8 h-8 bg-gray-700 active:bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-bold text-base transition-colors flex items-center justify-center"
+            onClick={() => handleAction({ type: ActionType.Fold, amount: 0 })}
+            className="shrink-0 px-4 py-2.5 bg-red-600 active:bg-red-800 hover:bg-red-700 text-white rounded-lg font-bold text-sm transition-colors min-h-[42px]"
           >
-            -
+            Fold
           </button>
-          <input
-            type="range"
-            min={minRaise}
-            max={maxRaise}
-            step={state.config.bigBlind}
-            value={raiseAmount || minRaise}
-            onChange={(e) => setRaiseAmount(Number(e.target.value))}
-            className="w-16 sm:w-20 accent-yellow-500 h-5 shrink-0"
-          />
-          <button
-            onClick={() => setRaiseAmount((prev) => Math.min(maxRaise, (prev || minRaise) + state.config.bigBlind))}
-            className="shrink-0 w-8 h-8 bg-gray-700 active:bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-bold text-base transition-colors flex items-center justify-center"
-          >
-            +
-          </button>
-          <button
-            onClick={() => handleAction({ type: ActionType.Raise, amount: raiseAmount || minRaise })}
-            className="shrink-0 px-3 py-2 bg-yellow-600 active:bg-yellow-800 hover:bg-yellow-700 text-white rounded-lg font-bold text-sm transition-colors min-h-[40px]"
-          >
-            {state.currentBet === 0 ? 'Bet' : 'Raise'} ${raiseAmount || minRaise}
-          </button>
-        </>
-      )}
 
-      {/* All-In */}
-      <button
-        onClick={() => {
-          (toCall > 0 && !hasCall ? playCallAllIn : playAllIn)();
-          handleAction({ type: ActionType.AllIn, amount: player.chips });
-        }}
-        className="shrink-0 px-3 py-2 bg-purple-600 active:bg-purple-800 hover:bg-purple-700 text-white rounded-lg font-bold text-sm transition-colors min-h-[40px]"
-      >
-        All-In
-      </button>
+          {/* Check */}
+          {hasCheck && (
+            <button
+              onClick={() => handleAction({ type: ActionType.Check, amount: 0 })}
+              className="shrink-0 px-4 py-2.5 bg-green-600 active:bg-green-800 hover:bg-green-700 text-white rounded-lg font-bold text-sm transition-colors min-h-[42px]"
+            >
+              Check
+            </button>
+          )}
+
+          {/* Call */}
+          {hasCall && (
+            <button
+              onClick={() => handleAction({ type: ActionType.Call, amount: toCall })}
+              className="shrink-0 px-4 py-2.5 bg-blue-600 active:bg-blue-800 hover:bg-blue-700 text-white rounded-lg font-bold text-sm transition-colors min-h-[42px]"
+            >
+              Call ${toCall}
+            </button>
+          )}
+
+          {/* Raise / Bet */}
+          {hasRaise && (
+            <button
+              onClick={() => handleAction({ type: ActionType.Raise, amount: effectiveRaise })}
+              className="shrink-0 px-4 py-2.5 bg-yellow-600 active:bg-yellow-800 hover:bg-yellow-700 text-white rounded-lg font-bold text-sm transition-colors min-h-[42px]"
+            >
+              {state.currentBet === 0 ? 'Bet' : 'Raise'} ${effectiveRaise}
+            </button>
+          )}
+
+          {/* All-In */}
+          <button
+            onClick={() => {
+              (toCall > 0 && !hasCall ? playCallAllIn : playAllIn)();
+              handleAction({ type: ActionType.AllIn, amount: player.chips });
+            }}
+            className="shrink-0 px-4 py-2.5 bg-purple-600 active:bg-purple-800 hover:bg-purple-700 text-white rounded-lg font-bold text-sm transition-colors min-h-[42px]"
+          >
+            All-In
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

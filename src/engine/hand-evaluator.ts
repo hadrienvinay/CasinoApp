@@ -362,6 +362,15 @@ function compareLowballHands(
     }));
 }
 
+export function evaluateFiveCardDrawHand(holeCards: Card[]): HandResult {
+  const solved = Hand.solve(holeCards.map(toPokersolverFormat));
+  return {
+    name: solved.name,
+    rank: solved.rank,
+    cards: solved.cards.map((c: { toString: () => string }) => c.toString()),
+  };
+}
+
 function compareFiveCardDrawHands(
   hands: { playerId: string; holeCards: Card[] }[],
 ): { playerId: string; handName: string }[] {
